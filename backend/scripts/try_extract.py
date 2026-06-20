@@ -6,6 +6,8 @@ Prints the facts and photo URLs we managed to pull, or the user-facing error.
 This is how we confirm the `__NEXT_DATA__` shape on a live page.
 """
 
+### experiment uncovered that Depop blocks server side requests to prevent bots so scraping isn't trivial. pivoted to screenshots for the project.
+### may end up being a better experience as a web app because agent could observe the screen
 import sys
 
 from app.depop import DepopFetchError, fetch_listing
