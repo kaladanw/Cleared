@@ -13,7 +13,8 @@ the system. De-risk the riskiest piece (ingestion) before building anything else
 - `backend/app/models.py` — the full report contract as Pydantic models (the
   spine for every later phase). **Do not casually change this schema.**
 - `backend/app/depop.py` — a defensive Depop page extractor (`__NEXT_DATA__` →
-  product object by shape, OpenGraph fallback).
+  product object by shape, OpenGraph fallback). **Since removed** — it never
+  cleared the 403; see the decision below.
 - Boots on Python 3.13, clean error path, verified imports.
 
 ## The load-bearing finding (this is why Phase 0 mattered)
@@ -41,7 +42,8 @@ via the iOS Share Sheet; a vision model reads them. This sidesteps *both* walls
 (the 403 and the Branch link), needs no scraping/paid service, and has zero
 Depop dependency — so the engine is fully buildable and testable offline.
 
-`backend/app/depop.py` is **retired from the v1 path** (kept for reference only).
+`backend/app/depop.py` (and its `scripts/try_extract.py` tester) were **removed** —
+the URL-fetch path is dead, so the code is gone too; recoverable from git history.
 
 ## Status
 

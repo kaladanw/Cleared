@@ -46,7 +46,8 @@ every phase serves filling it in honestly. Sections: `listingFacts`, `priceRead`
   listing images + optional `user_context`). Anthropic Python SDK, vision over the
   images, `web_search` server tool, structured output = `CheckReport`.
 - `backend/app/` — `models.py` (contract), `claude_check.py` (the one Claude call),
-  `main.py` (the endpoint), `depop.py` (retired; reference only).
+  `main.py` (the endpoint). The URL-fetch path (`depop.py`) was removed — see
+  `claude.mds/phase-0.md` for why.
 - iOS app (Swift/SwiftUI + Share Extension) — Phase 3, not built yet.
 
 ## Run the backend
