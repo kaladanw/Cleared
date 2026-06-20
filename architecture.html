@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cleared — a Depop buyer's preflight check · Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --calico:#EAE5D9; --muslin:#F4F0E6; --card:#FBF8F1;
+    --indigo:#1C2433; --indigo-2:#283246;
+    --thread:#D1352A; --thread-bright:#FF2D16;
+    --cleared:#3B7D5B; --kraft:#C7A878;
+    --text:#23262E; --soft:#5A6275; --soft-d:#9AA0B0;
+    --line:#CFC7B5; --line-d:rgba(255,255,255,.12);
+    --disp:'Barlow Condensed',system-ui,sans-serif;
+    --body:'IBM Plex Sans',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--calico);color:var(--text);font-family:var(--body);line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 26px}
+  a{color:inherit}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--soft)}
+
+  /* ---------- HERO ---------- */
+  .hero{background:var(--indigo);color:var(--muslin);padding:58px 0 64px;position:relative;overflow:hidden}
+  .hero .eyebrow{color:var(--soft-d)}
+  .hero-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:40px;align-items:center}
+  @media(max-width:860px){.hero-grid{grid-template-columns:1fr;gap:36px}}
+  .hero h1{font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:.005em;
+    font-size:clamp(38px,6.5vw,68px);line-height:.98;margin:12px 0 0}
+  .hero h1 .thread{color:var(--thread-bright)}
+  .lede{font-size:clamp(16px,1.7vw,19px);color:#C5CAD6;max-width:46ch;margin:20px 0 0}
+  .compose{margin-top:26px;border:1px solid var(--line-d);border-radius:7px;width:fit-content;max-width:100%;
+    font-family:var(--mono);font-size:12px;overflow:hidden}
+  .compose .strip{display:flex;flex-wrap:wrap}
+  .compose .strip span{padding:9px 14px;border-right:1px solid var(--line-d);color:#D7DBE4}
+  .compose .strip span:last-child{border-right:none}
+  .compose .strip b{color:var(--thread-bright);font-weight:500}
+  .compose .care{padding:8px 14px;border-top:1px solid var(--line-d);color:#9AA0B0;letter-spacing:.04em}
+
+  /* ---------- SIGNATURE: woven care label ---------- */
+  .label-hang{display:flex;justify-content:center;perspective:900px}
+  .label{background:var(--muslin);color:var(--indigo);width:100%;max-width:330px;border-radius:4px;
+    padding:18px 18px 16px;position:relative;transform-origin:top center;
+    box-shadow:0 22px 40px -22px rgba(0,0,0,.6);
+    /* stitched edge */
+    outline:2px dashed #C3BBA6;outline-offset:-7px;
+    animation:sway 7s ease-in-out infinite}
+  @keyframes sway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+  .label::before{content:"";position:absolute;top:-26px;left:50%;width:2px;height:26px;background:var(--thread-bright);transform:translateX(-50%)}
+  .label::after{content:"";position:absolute;top:7px;left:50%;width:9px;height:9px;border:2px solid var(--indigo);border-radius:50%;transform:translateX(-50%);background:var(--muslin)}
+  .label .brand{font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:.14em;
+    text-align:center;font-size:15px;margin:8px 0 2px;color:var(--cleared)}
+  .label .item{font-family:var(--mono);font-size:11px;text-align:center;color:var(--soft);letter-spacing:.02em}
+  .label .fiber{font-family:var(--mono);font-size:11px;text-align:center;margin:11px 0;padding:9px 0;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);letter-spacing:.03em;line-height:1.7}
+  .label .fiber b{color:var(--thread)}
+  .label .sym{display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:11px}
+  .label .sym div{display:flex;justify-content:space-between;align-items:center}
+  .label .sym .g{font-weight:600}
+  .g.ok{color:var(--cleared)} .g.warn{color:var(--kraft)} .g.no{color:var(--thread)}
+  .label .foot{margin-top:12px;text-align:center;font-family:var(--disp);font-weight:600;text-transform:uppercase;
+    letter-spacing:.06em;font-size:14px;color:var(--indigo)}
+  .label .foot small{display:block;font-family:var(--body);font-weight:400;text-transform:none;letter-spacing:0;
+    font-size:11px;color:var(--soft);margin-top:3px}
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:46px 0;border-bottom:1px solid var(--line)}
+  h2{font-family:var(--disp);font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    font-size:clamp(22px,3.2vw,30px);margin:0 0 6px}
+  .sub{color:var(--soft);max-width:66ch;margin:0 0 24px;font-size:15px}
+
+  /* ---------- PIPELINE (tags on a thread) ---------- */
+  .thread-line{position:relative}
+  .stages{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  @media(max-width:820px){.stages{grid-template-columns:1fr;gap:14px}}
+  .stage{position:relative;padding:0 11px}
+  .stage:not(:last-child)::after{content:"";position:absolute;top:34px;right:-2px;width:14px;height:2px;
+    background:repeating-linear-gradient(90deg,var(--thread) 0 4px,transparent 4px 8px)}
+  @media(max-width:820px){.stage:not(:last-child)::after{display:none}}
+  .swing{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:13px 13px 14px;height:100%;position:relative}
+  .swing .n{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--thread);display:block;margin-bottom:9px}
+  .swing .chip{font-family:var(--mono);font-size:11.5px;color:var(--text);background:var(--muslin);border:1px solid var(--line);border-radius:5px;padding:6px 8px;margin-bottom:5px;line-height:1.35}
+  .swing .chip.core{border-color:var(--indigo);background:var(--indigo);color:var(--muslin)}
+  .swing .chip.mic{border-color:var(--cleared);color:var(--cleared)}
+  .boundary{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--text);line-height:1.7;
+    background:var(--card);border:1px solid var(--line);border-left:3px solid var(--thread);border-radius:0 7px 7px 0;padding:13px 16px}
+  .boundary b{color:var(--thread)}
+
+  /* ---------- DECISIONS ---------- */
+  .dec{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--thread);
+    border-radius:0 8px 8px 0;padding:15px 19px;margin-bottom:12px}
+  .dec .dt{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--thread);display:block;margin-bottom:6px}
+  .dec .q{font-family:var(--disp);font-weight:600;font-size:18px;line-height:1.15;margin-bottom:5px;text-transform:uppercase;letter-spacing:.01em}
+  .dec p{margin:0;font-size:14.5px;color:var(--soft)}
+  .dec.cut{border-left-color:var(--soft-d);background:var(--muslin)}
+  .dec.cut .dt{color:var(--soft)}
+
+  /* ---------- DATA MODEL ---------- */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+  .tbl{background:var(--indigo);border-radius:9px;overflow:hidden}
+  .tbl h4{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--thread-bright);margin:0;padding:11px 15px;border-bottom:1px solid var(--line-d);background:var(--indigo-2)}
+  .tbl .col{font-family:var(--mono);font-size:12px;color:#DDE1EA;padding:8px 15px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.5}
+  .tbl .col:last-child{border-bottom:none}
+  .tbl .col b{color:#F2B7AF;font-weight:500}
+
+  /* ---------- PHASES ---------- */
+  .seq{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
+  @media(max-width:820px){.seq{grid-template-columns:1fr}}
+  .ph{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:15px;position:relative}
+  .ph.tgt{border-color:var(--thread);box-shadow:inset 0 0 0 1px rgba(209,53,42,.18)}
+  .ph .pn{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--thread)}
+  .ph.fol .pn{color:var(--soft)}
+  .ph .pt{font-family:var(--disp);font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:17px;margin:8px 0 5px}
+  .ph .pd{font-size:13px;color:var(--soft);line-height:1.5}
+  .v1tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--thread);border:1px solid var(--thread);border-radius:4px;padding:2px 7px;margin-bottom:14px}
+
+  footer{padding:30px 0 56px;font-family:var(--mono);font-size:11.5px;color:var(--soft);letter-spacing:.03em}
+
+  :focus-visible{outline:2px solid var(--thread);outline-offset:3px}
+  @media(prefers-reduced-motion:reduce){.label{animation:none;transform:rotate(-1deg)}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Architecture · v1 spec for review</span>
+      <h1>Cleared<br><span class="thread">to offer.</span></h1>
+      <p class="lede">A two-tap second opinion before you make an offer on a Depop listing — is the price fair for what it is, is the listing trustworthy, and (for the brands that actually get faked) what should you inspect first?</p>
+      <div class="compose">
+        <div class="strip">
+          <span><b>60%</b> price check</span>
+          <span><b>30%</b> listing trust</span>
+          <span><b>10%</b> auth flag</span>
+        </div>
+        <div class="care">iOS share-sheet · reads screenshots only · do not scrape · machine wash cold</div>
+      </div>
+    </div>
+
+    <div class="label-hang">
+      <div class="label" role="img" aria-label="Sample verdict: Ralph Lauren polo, negotiate, offer 24 dollars">
+        <div class="brand">Cleared ✓ — Negotiate</div>
+        <div class="item">Ralph Lauren polo · size M · "good" condition</div>
+        <div class="fiber">ASKING <b>$35</b> &nbsp;·&nbsp; RETAIL ~$98 &nbsp;·&nbsp; USED ~$18–28</div>
+        <div class="sym">
+          <div><span>Price vs market</span><span class="g warn">⚠ high</span></div>
+          <div><span>Measurements</span><span class="g no">✗ missing</span></div>
+          <div><span>Authenticity</span><span class="g ok">✓ likely ok</span></div>
+        </div>
+        <div class="foot">Offer $24<small>Ask for pit-to-pit before you buy</small></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2>How a check flows</h2>
+    <p class="sub">You're on a listing, mid-decision. You hand the agent a screenshot; it hands back the label above. Nothing is ever pulled <em>from</em> Depop.</p>
+    <div class="thread-line">
+      <div class="stages">
+        <div class="stage"><div class="swing">
+          <span class="n">1 · Capture</span>
+          <div class="chip">Depop listing screenshot</div>
+          <div class="chip">iOS Share Sheet → extension</div>
+          <div class="chip mic">🎙 voice context (optional)</div>
+        </div></div>
+        <div class="stage"><div class="swing">
+          <span class="n">2 · Analyze</span>
+          <div class="chip">thin backend proxy</div>
+          <div class="chip core">Claude vision agent</div>
+          <div class="chip">web retail-price lookup</div>
+        </div></div>
+        <div class="stage"><div class="swing">
+          <span class="n">3 · Keep</span>
+          <div class="chip">local recent-checks history</div>
+          <div class="chip">no Depop data persisted</div>
+        </div></div>
+        <div class="stage"><div class="swing">
+          <span class="n">4 · Read</span>
+          <div class="chip core">verdict: buy / negotiate / skip</div>
+          <div class="chip">price read + offer range</div>
+          <div class="chip">questions · what to inspect</div>
+        </div></div>
+      </div>
+    </div>
+    <div class="boundary"><b>The load-bearing boundary —</b> the user hands over a <b>screenshot</b>; the agent reads pixels, never Depop's servers. That one line keeps the build ToS-clean, impossible for Depop to block, durable across redesigns, and portable to any other marketplace later.</div>
+  </section>
+
+  <section>
+    <h2>Big decisions</h2>
+    <p class="sub">Each is a fork that's expensive to reverse. All were chosen against your real reality — beginner buyer, $5–40 mass brands — not a luxury-grail buyer.</p>
+
+    <div class="dec"><span class="dt">Decision · Interaction</span>
+      <div class="q">On-demand summon, not an always-on overlay</div>
+      <p>iOS sandboxing forbids a third-party app from floating over or reading another app's screen — stricter in iOS 26. The only sanctioned screen-awareness is Siri reading <em>your own</em> app, which is backwards for this. And a buy decision is a discrete moment, so summoning the agent onto one listing fits the real need better anyway.</p></div>
+
+    <div class="dec"><span class="dt">Decision · Input</span>
+      <div class="q">Screenshot via Share Sheet, not link-scraping</div>
+      <p>Taking the URL means fetching and parsing Depop's public page — scraping-gray, fragile to every redesign, blockable. Taking the image means zero ToS exposure and code that can't break when Depop ships new HTML. The vision pass needs the photos regardless.</p></div>
+
+    <div class="dec"><span class="dt">Decision · Authenticity</span>
+      <div class="q">Judgment-assist red flags, never a verdict</div>
+      <p>Real authentication (Entrupy ≈ 99.86%) leans on controlled capture and a 90M-image real-vs-fake database. A general vision model has neither, so a confident false "authentic" is worse than no tool. Instead: surface tells, list what to inspect, write the questions to ask — and only fire for fakeable brands (Nike / Ralph Lauren on; Uniqlo / jorts stay quiet).</p></div>
+
+    <div class="dec"><span class="dt">Decision · Pricing</span>
+      <div class="q">Retail-anchored + light used read, not gated comp APIs</div>
+      <p>eBay sold-comps (the ideal used signal) are partner-gated for independent devs. But retail price for Uniqlo / Ralph Lauren / Nike / New Balance is trivially findable — and for $5–40 mass brands, "is this even a discount vs new?" is the question that matters. Used-comp feeds are deferred, not a v1 dependency.</p></div>
+
+    <div class="dec"><span class="dt">Decision · Where the intelligence runs</span>
+      <div class="q">Thin backend proxy + Claude, not keys-in-app</div>
+      <p>The proxy protects the API key and orchestrates the web lookup plus the vision reasoning the task needs. Apple's on-device foundation models are parked as a future cost-saver for the cheap sub-steps, not the v1 engine.</p></div>
+
+    <div class="dec cut"><span class="dt">Cut from v1 · parked with a reason</span>
+      <div class="q">Seller automation · grail comps · heavy counterfeit detection · multi-user · ambient overlay</div>
+      <p>Each waits for a named failure mode or a platform change. None is required to prove the core loop.</p></div>
+  </section>
+
+  <section>
+    <h2>The report — the contract the agent fills in</h2>
+    <p class="sub">This object is what the backend returns and the label renders. It's the spine of the build; everything else exists to fill it in honestly.</p>
+    <div class="cards">
+      <div class="tbl"><h4>ListingFacts — read from the screenshot</h4>
+        <div class="col"><b>brand</b> · <b>model / name</b> · <b>category</b></div>
+        <div class="col"><b>size</b> · <b>listedCondition</b> · <b>askingPrice</b></div>
+        <div class="col"><b>photoObservations[]</b> — what vision actually saw</div></div>
+      <div class="tbl"><h4>PriceRead</h4>
+        <div class="col"><b>retailEstimate</b> · <b>usedEstimateRange?</b></div>
+        <div class="col"><b>fairness</b> — steal | fair | high | overpriced</div>
+        <div class="col"><b>suggestedOfferRange</b> · <b>reasoning</b></div></div>
+      <div class="tbl"><h4>ListingTrust</h4>
+        <div class="col"><b>missingInfo[]</b> — e.g. no measurements</div>
+        <div class="col"><b>concerns[]</b> — vague condition, odd photos</div>
+        <div class="col"><b>questionsToAsk[]</b> — ready to send the seller</div></div>
+      <div class="tbl"><h4>AuthFlag (conditional) + Verdict</h4>
+        <div class="col"><b>applicable</b> (brand-gated) · <b>redFlags[]</b> · <b>whatToInspect[]</b></div>
+        <div class="col"><b>recommendation</b> — buy | negotiate | skip</div>
+        <div class="col"><b>oneLine</b> · <b>userContext</b> (from voice)</div></div>
+    </div>
+  </section>
+
+  <section style="border-bottom:none">
+    <span class="v1tag">v1 = phases 0–3</span>
+    <h2>Build phases</h2>
+    <p class="sub">Vertical slices. Each one is shippable and proves one more piece of the loop. The order is the build sequence, so the numbers carry real information.</p>
+    <div class="seq">
+      <div class="ph tgt"><div class="pn">Phase 0</div><div class="pt">Skeleton</div><div class="pd">Share extension receives an image, round-trips to the backend, renders a stub label.</div></div>
+      <div class="ph tgt"><div class="pn">Phase 1</div><div class="pt">Price read</div><div class="pd">Vision extracts facts + retail lookup → fairness and offer range. The core value.</div></div>
+      <div class="ph tgt"><div class="pn">Phase 2</div><div class="pt">Listing trust</div><div class="pd">Missing-info detection and the questions-to-ask-the-seller list.</div></div>
+      <div class="ph tgt"><div class="pn">Phase 3</div><div class="pt">Auth + voice</div><div class="pd">Brand-conditional red flags; the mic captures your scenario as context.</div></div>
+      <div class="ph fol"><div class="pn">Later</div><div class="pt">Fast follow</div><div class="pd">Used-comp feeds · history that learns your taste · multi-marketplace · Android ambient.</div></div>
+    </div>
+  </section>
+
+  <footer>Cleared · buyer-side · iOS · for a beginner buying $5–40 mass brands · spec for review, not yet built.</footer>
+
+</div>
+</body>
+</html>
