@@ -24,7 +24,7 @@ def main() -> None:
     print("FACTS:")
     print(listing.facts.model_dump_json(indent=2))
     print(f"\nDESCRIPTION:\n{listing.description[:500]}")
-    print(f"\nPHOTOS ({len(listing.image_urls)}):")
+    print(f"\n({len(listing.image_urls)}) PHOTOS:")
     for u in listing.image_urls:
         print(f"  {u}")
 

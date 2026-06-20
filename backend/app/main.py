@@ -1,20 +1,20 @@
 """Cleared backend — the thin proxy.
 
-POST /check { url, user_context? } -> CheckReport
+POST /check  (multipart: images[] + optional user_context) -> CheckReport
 
-Phase 0: fetch the Depop listing and return the extracted facts + photos.
-Phase 1 will add the single Claude call that fills in price/trust/auth/verdict.
+The input is listing SCREENSHOT(S), not a URL — Depop flat-edge-blocks every
+server-side fetch (see claude.mds/phase-0.md). Vision reads the screenshots.
 """
 
 from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .depop import DepopFetchError, fetch_listing
-from .models import CheckReport, CheckRequest
+from .claude_check import run_check
+from .models import CheckReport, ListingFacts
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cleared")
@@ -29,6 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
 
 @app.get("/health")
 def health() -> dict:
@@ -36,32 +38,23 @@ def health() -> dict:
 
 
 @app.post("/check", response_model=CheckReport)
-def check(req: CheckRequest) -> CheckReport:
-    try:
-        listing = fetch_listing(req.url)
-    except DepopFetchError as exc:
-        log.warning("extraction failed for %s: %s", req.url, exc)
-        # A clean error state — the app renders this message verbatim.
-        from .models import ListingFacts
+async def check(
+    images: list[UploadFile] = [],
+    user_context: str | None = Form(None),
+) -> CheckReport:
+    loaded: list[tuple[bytes, str]] = []
+    for f in images:
+        media_type = f.content_type if f.content_type in _ALLOWED_IMAGE_TYPES else "image/jpeg"
+        loaded.append((await f.read(), media_type))
 
-        return CheckReport(listing_facts=ListingFacts(), error=str(exc))
+    if not loaded:
+        return CheckReport(
+            listing_facts=ListingFacts(),
+            error="No screenshots received — share the listing photos to analyze.",
+        )
 
-    log.info(
-        "extracted %d photos for %s (price=%s)",
-        len(listing.image_urls),
-        listing.facts.model_or_name,
-        listing.facts.asking_price,
-    )
-
-    report = CheckReport(listing_facts=listing.facts)
-
-    # --- Phase 1 slots in here -------------------------------------------------
-    # report = run_claude_check(listing, user_context=req.user_context)
-    # ---------------------------------------------------------------------------
-
-    # Until the Claude call exists, expose the photos we found so Phase 0 is
-    # verifiable end to end (they're not part of the final contract).
-    report.listing_facts.photo_observations = [
-        f"photo: {u}" for u in listing.image_urls
-    ]
+    log.info("checking listing from %d screenshot(s)", len(loaded))
+    report = run_check(loaded, user_context=user_context)
+    if report.error:
+        log.warning("check returned error: %s", report.error)
     return report
