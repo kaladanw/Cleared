@@ -113,8 +113,8 @@ the future `web/` page uses it. Add:
    the extension origin + localhost once the extension ID is known.
 
 The risk flagged in `phase-1.md` (structured output + `web_search` in one call)
-is **still unvalidated** and applies here identically — validate with a live key
-on the first real `/check-listing` call; fall back to two passes if rejected.
+is **resolved** — validated 2026-06-21 against a real Aelfric Eden screenshot,
+so the single-call shape carries over to `/check-listing` as-is.
 
 ## Extension (Manifest V3, Chrome first)
 
@@ -145,7 +145,7 @@ on the first real `/check-listing` call; fall back to two passes if rejected.
   `__NEXT_DATA__` and `console.log`s the parsed facts + image URLs on a real
   product page. *Validates the `__NEXT_DATA__` shape.*
 - **W3 — Wire them.** Button → POST → render `CheckReport` in-page. First real
-  end-to-end verdict. *Validates the format + web_search single-call combo.*
+  end-to-end web verdict.
 - **W4 — Polish + gate both ways.** Style to match `architecture.html`; confirm
   the brand gate (Uniqlo OFF, Ralph Lauren / Aelfric Eden ON) on live listings;
   tighten CORS to the real extension ID; write the `docs/ios-to-web/` narrative.
@@ -162,8 +162,8 @@ extracted facts + real CDN images, no screenshot.
 1. CDN image URLs fetch real bytes server-side (not just non-403 at root).
 2. `__NEXT_DATA__` field names for price / images / size / condition / brand /
    description on a current product page.
-3. Structured output (`output_format`) + `web_search` server tool in one
-   `messages.parse` call (carry-over risk from phase-1; needs a live key).
+3. ~~Structured output + `web_search` in one call~~ — already validated in
+   phase-1 (Aelfric Eden run); carries over unchanged.
 4. Brand gate fires correctly on live listings, both directions.
 
 ## How this gets executed (sub-agent + branch structure)

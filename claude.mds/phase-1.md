@@ -33,15 +33,20 @@ The endpoint is `POST /check` (multipart: `images[]` + optional `user_context`).
 - Authenticity: judgment-assist only, fakeable brands only, **never claim
   authentic**. List of fakeable brands lives in `FAKEABLE_BRANDS` (tunable).
 
-## Known risk to validate with a live key
+## ~~Known risk~~ — RESOLVED (validated 2026-06-21)
 
 Combining structured output (`output_format`) with the server-side `web_search`
-tool in a single call is the documented-clean approach but unverified here (no
-API key was available at build time). If the API rejects format + server tools
-together, split into two passes: (a) search + reason, (b) format into
-`CheckReport`. Keep it one call while it works.
+tool in a single `messages.parse` call **works.** Validated end-to-end with a
+live key against a real Aelfric Eden listing screenshot — the saved run
+(`phase-1-tests/runs/run-0-12:58am/`) carries web-searched retail/used prices
+*and* the structured `CheckReport` shape, which is the proof both ran together.
+No two-pass fallback needed. Keep it one call.
 
 ## Verification (needs ANTHROPIC_API_KEY + a real screenshot)
+
+> Status: first real verdict confirmed working — Aelfric Eden screenshot returned
+> a sane `CheckReport` (see saved run). Brand gate both-ways (Uniqlo OFF / Ralph
+> Lauren ON) still worth a quick confirm.
 
 ```sh
 curl -s -X POST localhost:8000/check \
