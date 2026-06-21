@@ -8,11 +8,14 @@ is no separate pricing service and no multi-agent orchestration.
 from __future__ import annotations
 
 import base64
+import logging
 import os
 
 import anthropic
 
 from .models import CheckReport, ListingFacts
+
+log = logging.getLogger("cleared")
 
 MODEL = os.environ.get("CLEARED_MODEL", "claude-opus-4-8")
 
@@ -141,7 +144,7 @@ def run_check_traced(
         return (
             CheckReport(
                 listing_facts=ListingFacts(),
-                error=f"Couldn't complete the check ({exc.__class__.__name__}). Try again.",
+                error=_user_error_for(exc),
             ),
             None,
         )
@@ -151,6 +154,61 @@ def run_check_traced(
     if user_context:
         report.verdict.user_context = user_context
     return report, msg
+
+
+# Substrings that single out the billing/low-credit case among 400s. The API
+# returns these as a BadRequestError whose `.type` is the generic
+# "invalid_request_error" — only the message distinguishes them from a genuinely
+# malformed request, so message-match is the one place we read the text.
+_BILLING_HINTS = ("credit balance", "billing", "insufficient", "purchase credits")
+
+
+def _user_error_for(exc: anthropic.APIError) -> str:
+    """Map an Anthropic SDK exception to an honest, user-facing CheckReport.error.
+
+    Branch on the typed exception classes (most-specific first), never on the
+    stringified error. "Try again" is reserved for genuinely transient failures;
+    non-retryable failures say so plainly without leaking keys or internals. The
+    full exception is logged server-side so the user message can stay calibrated.
+    """
+    # --- Not retryable: server-side configuration or billing. ---
+    if isinstance(exc, anthropic.AuthenticationError):
+        # 401: the server's API key is missing/invalid/revoked. The buyer can't fix this.
+        log.error("Anthropic auth failure (check ANTHROPIC_API_KEY): %r", exc)
+        return "The check service is misconfigured on our end. This isn't something a retry will fix."
+    if isinstance(exc, anthropic.PermissionDeniedError):
+        # 403: the key lacks access to the model/feature. Server-side, not retryable.
+        log.error("Anthropic permission denied (key lacks access): %r", exc)
+        return "The check service is misconfigured on our end. This isn't something a retry will fix."
+    if isinstance(exc, anthropic.BadRequestError):
+        # 400. Two flavors, both non-retryable, but the billing case deserves its
+        # own message — `.type` is "invalid_request_error" for both, so match text.
+        text = f"{getattr(exc, 'type', None) or ''} {exc.message}".lower()
+        if any(hint in text for hint in _BILLING_HINTS):
+            log.error("Anthropic billing/credit failure: %r", exc)
+            return "The check service is temporarily unavailable (a billing issue on our end). Retrying won't help right now."
+        log.error("Anthropic bad request (malformed call — likely a bug): %r", exc)
+        return "Couldn't run the check on these screenshots. Retrying the same ones probably won't help."
+
+    # --- Retryable: rate limits, transient server load, network. ---
+    if isinstance(exc, anthropic.RateLimitError):
+        # 429. The SDK already auto-retries these, so reaching here means retries
+        # were exhausted — but a later attempt may still succeed.
+        log.warning("Anthropic rate limit (auto-retries exhausted): %r", exc)
+        return "The check service is busy right now. Give it a moment and try again."
+    if isinstance(
+        exc,
+        (anthropic.InternalServerError, anthropic.OverloadedError, anthropic.APIConnectionError),
+    ):
+        # 5xx, 529 (OverloadedError — a sibling of InternalServerError in this SDK,
+        # not a subclass, so list it explicitly), and network errors
+        # (APITimeoutError subclasses APIConnectionError). All transient.
+        log.warning("Anthropic transient failure (server/network): %r", exc)
+        return "Couldn't reach the check service. Try again in a moment."
+
+    # Anything else under APIError — be honest that we don't know, allow a retry.
+    log.error("Unexpected Anthropic API error: %r", exc)
+    return "Something went wrong running the check. Try again."
 
 
 def _build_user_text(user_context: str | None) -> str:

@@ -3,7 +3,7 @@
 A buyer-side iOS assistant: a two-tap second opinion before you offer on a Depop
 listing. Personal, single-user tool. Born from a Preflight session that
 pressure-tested the idea against reality; the design artifact is
-`architecture.html` (open in a browser).
+`artifacts/design/architecture.html` (open in a browser).
 
 ## Per-phase briefs (read the one you're working on)
 
