@@ -73,16 +73,43 @@ no fabricated certainty.
 
 
 def run_check(images: list[tuple[bytes, str]], user_context: str | None) -> CheckReport:
-    """images: list of (raw_bytes, media_type). Returns a filled CheckReport."""
+    """images: list of (raw_bytes, media_type). Returns a filled CheckReport.
+
+    This is what the endpoint and the app use — the contract is just CheckReport.
+    For debug/eval (capturing the web_search trace too) use `run_check_traced`.
+    """
+    report, _msg = run_check_traced(images, user_context)
+    return report
+
+
+def run_check_traced(
+    images: list[tuple[bytes, str]], user_context: str | None
+) -> tuple[CheckReport, object | None]:
+    """Same call as `run_check`, but also hands back the raw Claude message.
+
+    The raw message carries the `web_search` trace (queries + returned sources)
+    that `run_check` discards. The eval tooling walks it via
+    `search_trace.extract_search_trace(msg.content)`. The app never sees this —
+    the trace is a separate debug artifact, not part of the rendered report.
+
+    Returns (report, msg). `msg` is None on the early-out / error paths (no key,
+    no images, API error), since there's no response to trace in those cases.
+    """
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        return CheckReport(
-            listing_facts=ListingFacts(),
-            error="Server isn't configured yet (no ANTHROPIC_API_KEY). Set it in .env.",
+        return (
+            CheckReport(
+                listing_facts=ListingFacts(),
+                error="Server isn't configured yet (no ANTHROPIC_API_KEY). Set it in .env.",
+            ),
+            None,
         )
     if not images:
-        return CheckReport(
-            listing_facts=ListingFacts(),
-            error="No screenshots received — share the listing photos to analyze.",
+        return (
+            CheckReport(
+                listing_facts=ListingFacts(),
+                error="No screenshots received — share the listing photos to analyze.",
+            ),
+            None,
         )
 
     client = anthropic.Anthropic()
@@ -114,16 +141,19 @@ def run_check(images: list[tuple[bytes, str]], user_context: str | None) -> Chec
             output_format=CheckReport,
         )
     except anthropic.APIError as exc:
-        return CheckReport(
-            listing_facts=ListingFacts(),
-            error=_user_error_for(exc),
+        return (
+            CheckReport(
+                listing_facts=ListingFacts(),
+                error=_user_error_for(exc),
+            ),
+            None,
         )
 
     report = msg.parsed_output or CheckReport(listing_facts=ListingFacts())
     _enforce_brand_gate(report)
     if user_context:
         report.verdict.user_context = user_context
-    return report
+    return report, msg
 
 
 # Substrings that single out the billing/low-credit case among 400s. The API
