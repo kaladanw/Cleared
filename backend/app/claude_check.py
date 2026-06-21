@@ -8,6 +8,7 @@ is no separate pricing service and no multi-agent orchestration.
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import os
 
@@ -72,18 +73,24 @@ no fabricated certainty.
 """
 
 
-def run_check(images: list[tuple[bytes, str]], user_context: str | None) -> CheckReport:
+def run_check(
+    images: list[tuple[bytes, str]],
+    user_context: str | None,
+    seeded_facts: ListingFacts | None = None,
+) -> CheckReport:
     """images: list of (raw_bytes, media_type). Returns a filled CheckReport.
 
     This is what the endpoint and the app use — the contract is just CheckReport.
     For debug/eval (capturing the web_search trace too) use `run_check_traced`.
     """
-    report, _msg = run_check_traced(images, user_context)
+    report, _msg = run_check_traced(images, user_context, seeded_facts=seeded_facts)
     return report
 
 
 def run_check_traced(
-    images: list[tuple[bytes, str]], user_context: str | None
+    images: list[tuple[bytes, str]],
+    user_context: str | None,
+    seeded_facts: ListingFacts | None = None,
 ) -> tuple[CheckReport, object | None]:
     """Same call as `run_check`, but also hands back the raw Claude message.
 
@@ -125,7 +132,7 @@ def run_check_traced(
         }
         for data, media_type in images
     ]
-    content.append({"type": "text", "text": _build_user_text(user_context)})
+    content.append({"type": "text", "text": _build_user_text(user_context, seeded_facts=seeded_facts)})
 
     try:
         # Single structured call: vision + web_search + the CheckReport schema.
@@ -211,13 +218,22 @@ def _user_error_for(exc: anthropic.APIError) -> str:
     return "Something went wrong running the check. Try again."
 
 
-def _build_user_text(user_context: str | None) -> str:
+def _build_user_text(
+    user_context: str | None,
+    seeded_facts: ListingFacts | None = None,
+) -> str:
     brands = ", ".join(FAKEABLE_BRANDS)
     parts = [
         "Analyze this Depop listing from the screenshot(s) and fill in the report.",
         f"Fakeable brands (run the authenticity pass only for these): {brands}.",
         "For any other brand, set auth_flag.applicable=false.",
     ]
+    if seeded_facts is not None:
+        facts_json = json.dumps(seeded_facts.model_dump(), sort_keys=True)
+        parts.append(
+            "The listing's stated facts (from the page — treat as ground truth; "
+            f"correct only if the photos clearly contradict): {facts_json}"
+        )
     if user_context:
         parts.append(f"Buyer's context: {user_context}")
     return "\n".join(parts)

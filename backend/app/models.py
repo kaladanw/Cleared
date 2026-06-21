@@ -86,3 +86,11 @@ class CheckRequest(BaseModel):
     user_context: Optional[str] = Field(
         None, description="Transcribed voice note, e.g. 'it's a gift, must be legit'"
     )
+
+
+class CheckListingRequest(BaseModel):
+    facts: ListingFacts = Field(default_factory=ListingFacts)
+    image_urls: list[str] = Field(default_factory=list)
+    user_context: Optional[str] = Field(
+        None, description="Transcribed voice note, e.g. 'it's a gift, must be legit'"
+    )

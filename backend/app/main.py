@@ -9,6 +9,7 @@ server-side fetch (see claude.mds/phase-0.md). Vision reads the screenshots.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,11 +17,12 @@ from dotenv import load_dotenv
 # Load backend/.env.local so ANTHROPIC_API_KEY is picked up without exporting it.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env.local")
 
-from fastapi import FastAPI, Form, UploadFile
+from fastapi import FastAPI, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .claude_check import run_check
-from .models import CheckReport, ListingFacts
+from .images import fetch_images
+from .models import CheckListingRequest, CheckReport, ListingFacts
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cleared")
@@ -64,3 +66,34 @@ async def check(
     if report.error:
         log.warning("check returned error: %s", report.error)
     return report
+
+
+@app.post("/check-listing", response_model=CheckReport)
+async def check_listing(
+    request: CheckListingRequest,
+    x_cleared_token: str | None = Header(None, alias="X-Cleared-Token"),
+) -> CheckReport:
+    _require_token(x_cleared_token)
+
+    images = fetch_images(request.image_urls)
+    if not images:
+        return CheckReport(
+            listing_facts=ListingFacts(),
+            error="Could not fetch listing photos from the supplied image URLs.",
+        )
+
+    log.info("checking listing from %d fetched image(s)", len(images))
+    report = run_check(
+        images,
+        user_context=request.user_context,
+        seeded_facts=request.facts,
+    )
+    if report.error:
+        log.warning("check-listing returned error: %s", report.error)
+    return report
+
+
+def _require_token(token: str | None) -> None:
+    expected = os.environ.get("CLEARED_SHARED_TOKEN")
+    if expected and token != expected:
+        raise HTTPException(status_code=401, detail="Invalid Cleared token.")
