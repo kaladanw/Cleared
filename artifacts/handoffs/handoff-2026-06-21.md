@@ -1,0 +1,70 @@
+# Session handoff — live working state
+
+> Snapshot for a fresh Claude Code instance picking up mid-flight. Read the root
+> `CLAUDE.md` first (it auto-loads and imports `phase-1.md`) for the locked
+> decisions and architecture — this file is only the *live state* on top of that.
+> Once you've absorbed it, archive it: `git mv claude.mds/handoff.md
+> artifacts/handoffs/handoff-2026-06-21.md` (the convention from the
+> `subagent-coding` skill — keep the trail, don't delete).
+
+## Where we are
+
+Phase 1 (the Claude vision → `CheckReport` engine) is **built and validated live**
+(2026-06-21, Aelfric Eden polo — see `phase-1-tests/runs/run-0-12:58am/`). The
+format + `web_search` single-call risk is **confirmed working** (memory:
+`phase-1-validated`). Two follow-on improvements just landed on `main` via PRs:
+
+- **Honest error handling** — `claude_check.py :: _user_error_for()` maps Anthropic
+  SDK exceptions to calibrated `CheckReport.error` messages; "try again" only for
+  truly transient failures. Tests: `backend/tests/test_error_mapping.py`
+  (`cd backend && ./.venv/bin/python -m unittest tests.test_error_mapping`).
+- **Eval + search-trace tooling** — `backend/app/search_trace.py` extracts the
+  `web_search` queries+results the report used to discard; `run_check_traced()`
+  hands back the raw msg. Harness in `phase-1-tests/`: `capture_run.py` (live
+  capture → per-run folder), `review_run.py` (no-call side-by-side),
+  `rubric-template.md` (7-criterion reasoning scorecard, with an unbuilt
+  Reddit/social seam). Test: `./backend/.venv/bin/python phase-1-tests/test_search_trace.py`.
+
+## Immediate next step — the one Phase 1 loose end
+
+Confirm the brand gate in the **OFF** direction. Drop a **non-fakeable-brand**
+screenshot (e.g. Uniqlo) into `test_shots/`, then capture a real run and check
+`auth_flag.applicable == false`:
+
+```sh
+cd backend && ./.venv/bin/uvicorn app.main:app --port 8000   # shell 1
+# shell 2 — or use phase-1-tests/capture_run.py to also save the search trace:
+./backend/.venv/bin/python phase-1-tests/capture_run.py --name run-1-uniqlo \
+  --context "..." test_shots/<shot>.png
+```
+
+Needs `ANTHROPIC_API_KEY` in `backend/.env.local` AND **Console credits** (API
+billing is separate from the claude.ai Pro plan — a real run costs pennies). The
+brand gate ON direction is already proven (Aelfric Eden run-0). After this:
+Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
+
+## Open threads (not blocking)
+
+- **Web-port plan** — another (remote) Claude instance pushed
+  `origin/claude/depop-web-agent-plan-w6c1hm`: a real, useful plan
+  (`claude.mds/phase-web.md`) for a browser-extension web version. Its key finding:
+  Depop's 403 is on HTML/API only, **not** the image CDN, which unlocks an
+  extension reading the listing client-side. Left as-is by the user's choice —
+  decide later whether to adopt it. Non-destructive, isolated to `claude.mds/`.
+- **`subagent-coding` skill** — global skill at `~/.claude/skills/subagent-coding/`
+  (also a private GitHub repo `kaladanw/claude-skills`). It's the playbook for
+  spinning up coding subagents on branches/PRs — read it before doing that again.
+  It has a dated "Lessons log"; append to it when you learn something.
+
+## Git state
+
+- Branch `main`, synced with `origin/main` at `e469b42`. Working tree clean.
+- Both feature branches (`eval-system`, `billing-error-handling`) merged via PRs
+  #1/#2 and deleted (local + remote). Only `main` + the web-plan branch remain.
+- Identity: `kaladanw`. Repo: `github.com/kaladanw/Cleared`.
+
+## Env notes
+
+- Python 3.13, venv at `backend/.venv`. Run backend from `backend/`.
+- Key in `backend/.env.local` (gitignored; loaded by `app/main.py`). Never echo it.
+- Local screenshots go in `test_shots/` (gitignored). Test outputs: `phase-1-tests/runs/`.
