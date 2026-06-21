@@ -13,15 +13,22 @@ describe("manifest", () => {
 
     assert.equal(manifest.manifest_version, 3);
     assert.ok(manifest.host_permissions.includes("*://*.depop.com/products/*"));
+    assert.ok(manifest.host_permissions.includes("http://localhost:8000/*"));
     assert.equal(manifest.content_scripts.length, 1);
     assert.deepEqual(manifest.content_scripts[0].matches, ["*://*.depop.com/products/*"]);
     assert.deepEqual(manifest.content_scripts[0].js, [
       "src/extractor.js",
+      "src/client.js",
+      "src/ui.js",
       "content-script.js",
     ]);
+    assert.deepEqual(manifest.content_scripts[0].css, ["styles.css"]);
 
     for (const script of manifest.content_scripts[0].js) {
       assert.ok(fs.existsSync(path.join(extensionRoot, script)), `${script} exists`);
+    }
+    for (const css of manifest.content_scripts[0].css) {
+      assert.ok(fs.existsSync(path.join(extensionRoot, css)), `${css} exists`);
     }
   });
 });

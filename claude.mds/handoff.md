@@ -35,6 +35,10 @@ The web port has started:
 - **W2 extension skeleton** — `extension/` is a plain Manifest V3 Chrome
   extension. It reads Depop `__NEXT_DATA__` on product pages and logs extracted
   facts + image URLs; it does not call the backend yet.
+- **W3 branch in progress** — branch `claude/web-wire-extension` wires the
+  extension to local `/check-listing`: injected button, optional buyer context,
+  POST to `http://localhost:8000/check-listing`, and in-page `CheckReport`
+  rendering.
 
 ## Immediate next step — the one Phase 1 loose end
 
@@ -58,7 +62,8 @@ Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
 
 - **Web-port live validation** — still needs a real current Depop product page:
   confirm `__NEXT_DATA__` field names, confirm CDN image URLs return bytes
-  server-side, then wire the extension button to `/check-listing`.
+  server-side, then click through the injected extension panel against the local
+  backend.
 - **`subagent-coding` skill** — global skill at `~/.claude/skills/subagent-coding/`
   (also a private GitHub repo `kaladanw/claude-skills`). It's the playbook for
   spinning up coding subagents on branches/PRs — read it before doing that again.
