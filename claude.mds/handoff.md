@@ -3,9 +3,10 @@
 > Snapshot for a fresh Claude Code instance picking up mid-flight. Read the root
 > `CLAUDE.md` first (it auto-loads and imports `phase-1.md`) for the locked
 > decisions and architecture — this file is only the *live state* on top of that.
-> Once you've absorbed it, archive it: `git mv claude.mds/handoff.md
-> artifacts/handoffs/handoff-2026-06-21.md` (the convention from the
-> `subagent-coding` skill — keep the trail, don't delete).
+> Keep this file in `claude.mds/` while it reflects live state; future agents
+> should find the current handoff here without digging through artifacts.
+> Historical snapshots belong in `artifacts/handoffs/` when this context is
+> superseded.
 
 ## Where we are
 
