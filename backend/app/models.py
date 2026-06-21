@@ -13,7 +13,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class Fairness(str, Enum):
+class PriceFairness(str, Enum):
     steal = "steal"
     fair = "fair"
     high = "high"
@@ -45,7 +45,7 @@ class PriceRead(BaseModel):
     retail_estimate: Optional[float] = None
     used_estimate_low: Optional[float] = None
     used_estimate_high: Optional[float] = None
-    fairness: Optional[Fairness] = None
+    fairness: Optional[PriceFairness] = None
     suggested_offer_low: Optional[float] = None
     suggested_offer_high: Optional[float] = None
     reasoning: str = ""

@@ -24,6 +24,7 @@ FAKEABLE_BRANDS = [
     "ralph lauren",
     "polo ralph lauren",
     "polo",
+    "aelfric eden"
 ]
 
 _SYSTEM = """\
