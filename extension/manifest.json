@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Read Depop listing facts for a Cleared check.",
   "host_permissions": [
-    "*://*.depop.com/products/*"
+    "*://*.depop.com/products/*",
+    "http://localhost:8000/*"
   ],
   "content_scripts": [
     {
@@ -13,7 +14,12 @@
       ],
       "js": [
         "src/extractor.js",
+        "src/client.js",
+        "src/ui.js",
         "content-script.js"
+      ],
+      "css": [
+        "styles.css"
       ],
       "run_at": "document_idle"
     }
