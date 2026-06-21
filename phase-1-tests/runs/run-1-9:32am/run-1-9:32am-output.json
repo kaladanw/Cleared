@@ -1,0 +1,58 @@
+{
+    "listing_facts": {
+        "brand": "Kenneth Cole",
+        "model_or_name": "Vintage black leather jacket with zipper",
+        "category": "Jackets / leather jacket",
+        "size": "L (Men)",
+        "listed_condition": "Excellent condition",
+        "asking_price": 12.0,
+        "currency": "USD",
+        "photo_observations": [
+            "Black genuine-look leather full-zip jacket on a hanger at what looks like a thrift/market rack",
+            "Kenneth Cole interior brand tag visible at the collar",
+            "Two front flap/welt pockets, point collar, single silver front zipper",
+            "Some surface creasing/sheen and minor wear typical of a vintage leather jacket; no obvious tears visible",
+            "Only one main photo readable here; dots indicate ~5 photos exist but additional angles/measurements not shown"
+        ]
+    },
+    "price_read": {
+        "retail_estimate": 150.0,
+        "used_estimate_low": 25.0,
+        "used_estimate_high": 60.0,
+        "fairness": "steal",
+        "suggested_offer_low": 8.0,
+        "suggested_offer_high": 12.0,
+        "reasoning": "Kenneth Cole leather/faux-leather jackets retail roughly $80-$200 new (genuine leather styles toward the higher end; the Reaction line and faux versions ~$50-$75). Used comps on eBay for Kenneth Cole leather jackets cluster heavily in the under-$40 to ~$60 range, with vintage pieces often $25-$60. At $12 with free shipping this is well below both new and typical used prices \u2014 a clear steal IF it actually fits and the leather is in the stated 'excellent' shape. The $8 offer button is worth a try, but at $12 the savings are already strong enough that haggling hard isn't necessary. Note: 'retail' here is a general estimate for the category, not this exact vintage SKU."
+    },
+    "listing_trust": {
+        "missing_info": [
+            "No measurements at all \u2014 pit-to-pit, length, sleeve, shoulder. 'Size L' on a vintage jacket is unreliable and fit is a real gamble",
+            "No close-ups in this view of the lining, zipper pull, cuffs, or any damage areas",
+            "Material not explicitly stated as genuine leather vs faux \u2014 important for a 'leather' jacket",
+            "Photographed on a crowded rack rather than clear flat-lay/worn shots"
+        ],
+        "concerns": [
+            "Vintage sizing runs differently than modern L; without numbers you can't confirm fit",
+            "'Excellent condition' is the seller's word \u2014 leather can have cracking, peeling, or lining tears not visible here",
+            "Shot at a market/thrift setting, so this may be a quick resale flip with limited detail provided"
+        ],
+        "questions_to_ask": [
+            "Can you share the measurements laid flat \u2014 pit-to-pit, total length, and sleeve length?",
+            "Is this genuine leather or faux/bonded leather?",
+            "Are there any cracks, peeling, stains, or tears in the leather or lining? Close-up photos please.",
+            "Does the zipper run smoothly the full length?"
+        ]
+    },
+    "auth_flag": {
+        "applicable": false,
+        "red_flags": [],
+        "what_to_inspect": [],
+        "confidence": null
+    },
+    "verdict": {
+        "recommendation": "buy",
+        "one_line": "At $12 shipped this is well under used and new prices \u2014 a steal, so grab it, but message for pit-to-pit measurements first since fit is the only real risk.",
+        "user_context": "I am checking whether this jacket is worth buying; price and fit matter, and authenticity should only be flagged for meaningfully fakeable brands."
+    },
+    "error": null
+}
