@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Cleared",
+  "version": "0.1.0",
+  "description": "Read Depop listing facts for a Cleared check.",
+  "host_permissions": [
+    "*://*.depop.com/products/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.depop.com/products/*"
+      ],
+      "js": [
+        "src/extractor.js",
+        "content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

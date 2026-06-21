@@ -26,6 +26,16 @@ format + `web_search` single-call risk is **confirmed working** (memory:
   `rubric-template.md` (7-criterion reasoning scorecard, with an unbuilt
   Reddit/social seam). Test: `./backend/.venv/bin/python phase-1-tests/test_search_trace.py`.
 
+The web port has started:
+
+- **W1 backend seam** — `POST /check-listing` accepts extension-provided
+  `ListingFacts` + image URLs, fetches CDN images server-side, and threads seeded
+  facts through the existing traced Claude call. Optional `X-Cleared-Token`
+  enforcement is controlled by `CLEARED_SHARED_TOKEN`.
+- **W2 extension skeleton** — `extension/` is a plain Manifest V3 Chrome
+  extension. It reads Depop `__NEXT_DATA__` on product pages and logs extracted
+  facts + image URLs; it does not call the backend yet.
+
 ## Immediate next step — the one Phase 1 loose end
 
 Confirm the brand gate in the **OFF** direction. Drop a **non-fakeable-brand**
@@ -46,12 +56,9 @@ Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
 
 ## Open threads (not blocking)
 
-- **Web-port plan** — another (remote) Claude instance pushed
-  `origin/claude/depop-web-agent-plan-w6c1hm`: a real, useful plan
-  (`claude.mds/phase-web.md`) for a browser-extension web version. Its key finding:
-  Depop's 403 is on HTML/API only, **not** the image CDN, which unlocks an
-  extension reading the listing client-side. Left as-is by the user's choice —
-  decide later whether to adopt it. Non-destructive, isolated to `claude.mds/`.
+- **Web-port live validation** — still needs a real current Depop product page:
+  confirm `__NEXT_DATA__` field names, confirm CDN image URLs return bytes
+  server-side, then wire the extension button to `/check-listing`.
 - **`subagent-coding` skill** — global skill at `~/.claude/skills/subagent-coding/`
   (also a private GitHub repo `kaladanw/claude-skills`). It's the playbook for
   spinning up coding subagents on branches/PRs — read it before doing that again.
@@ -59,7 +66,8 @@ Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
 
 ## Git state
 
-- Branch `main`, synced with `origin/main` at `e469b42`. Working tree clean.
+- Branch `main`; local work has moved past the older handoff commits with the web
+  backend seam and extension skeleton.
 - Both feature branches (`eval-system`, `billing-error-handling`) merged via PRs
   #1/#2 and deleted (local + remote). Only `main` + the web-plan branch remain.
 - Identity: `kaladanw`. Repo: `github.com/kaladanw/Cleared`.
