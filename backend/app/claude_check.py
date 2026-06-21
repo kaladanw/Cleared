@@ -53,10 +53,19 @@ Produce a buy / negotiate / skip read with three checks, in priority order.
      estimate null and explain the uncertainty in `reasoning`.
 
 2) LISTING TRUST.
-   - The biggest real risk at this price isn't fakes, it's a bad listing. Flag
-     `missing_info` (especially MISSING MEASUREMENTS — pit-to-pit, length —
-     which make fit a gamble), vague condition, and sketchy/insufficient photos.
-   - Write 2–4 concrete `questions_to_ask` the seller, ready to send.
+   - The biggest real risk at this price isn't fakes, it's a bad listing. Treat
+     fit, condition uncertainty, material uncertainty, and photo sufficiency as
+     separate trust questions.
+   - Missing measurements are a first-class risk. For tops/jackets/sweaters,
+     look for pit-to-pit, length, sleeve, and shoulder. For pants/shorts/jorts,
+     look for waist, inseam, rise, and leg opening. If relevant measurements are
+     absent or only a letter size is shown, add them to `missing_info`.
+   - Flag vague condition claims when the photos do not prove them: no close-ups
+     of cuffs/collars/hems, lining, tags, stains, pilling, cracking, peeling,
+     zipper function, or fabric wear.
+   - Write 2–4 item-specific, send-ready `questions_to_ask` the buyer can paste
+     to the seller. Make them concrete ("Can you share pit-to-pit and length
+     laid flat?"), not generic ("Can you provide more info?").
 
 3) AUTHENTICITY — judgment-assist only, and ONLY for fakeable brands.
    - You will be told whether this brand is in the fakeable set. If it is NOT
