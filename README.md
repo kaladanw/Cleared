@@ -3,7 +3,7 @@
 A two-tap second opinion before you offer on a Depop listing: is the price fair,
 is the listing trustworthy, and (for fakeable brands) what should you inspect?
 
-Buyer-side, iOS, personal tool. See `architecture.html` (open in a browser) for
+Buyer-side, iOS, personal tool. See `artifacts/design/architecture.html` (open in a browser) for
 the design and the locked decisions; the full plan lives in the Preflight
 session's plan file.
 
