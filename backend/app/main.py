@@ -9,6 +9,12 @@ server-side fetch (see claude.mds/phase-0.md). Vision reads the screenshots.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load backend/.env.local so ANTHROPIC_API_KEY is picked up without exporting it.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env.local")
 
 from fastapi import FastAPI, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware

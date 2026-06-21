@@ -5,7 +5,11 @@ __pycache__/
 venv/
 
 # Secrets / local config
-.env
+.env*
+!.env.example
+
+# Local test screenshots (not part of the repo)
+test_shots/
 
 # OS
 .DS_Store
