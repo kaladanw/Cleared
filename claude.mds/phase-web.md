@@ -106,11 +106,20 @@ the future `web/` page uses it. Add:
 3. **`run_check` seam** — let it accept pre-fetched image bytes **plus** seeded
    `ListingFacts`, so Claude *refines/verifies* the extracted facts against the
    photos instead of reading them from scratch. Minimal change: same call, the
-   user-text block now includes the structured facts as ground truth ("here are
-   the listing's stated facts; correct them only if the photos contradict").
+   user-text block (`_build_user_text`) now includes the structured facts as
+   ground truth ("here are the listing's stated facts; correct them only if the
+   photos contradict"). **Keep the trace seam:** `run_check` already delegates to
+   `run_check_traced(...) -> (report, msg)` so the eval harness can pull the
+   `web_search` trace (`search_trace.extract_search_trace`). Thread the seeded
+   facts through `run_check_traced`, not around it, so the web path stays
+   eval-able exactly like the screenshot path.
 4. **A shared-secret header** (e.g. `X-Cleared-Token`) so the deployed backend
    isn't an open Claude proxy. CORS is already `*`; tighten `allow_origins` to
    the extension origin + localhost once the extension ID is known.
+5. **Don't regress error mapping.** `_user_error_for` already maps SDK
+   exceptions to honest, calibrated `CheckReport.error` strings, and
+   `backend/tests/test_error_mapping.py` locks that behavior. `/check-listing`
+   should funnel through the same path (it gets it for free via `run_check`).
 
 The risk flagged in `phase-1.md` (structured output + `web_search` in one call)
 is **resolved** — validated 2026-06-21 against a real Aelfric Eden screenshot,
@@ -130,8 +139,8 @@ so the single-call shape carries over to `/check-listing` as-is.
   condition, description, brand) — Depop can change the shape any time.
 - **UI:** inject a single "Check this listing" button near the price; on click,
   POST facts + image URLs, show a loading state, render the returned
-  `CheckReport` as the care-label panel (mirror `architecture.html`'s styling so
-  iOS and web look like one product). Optional voice context via a text field
+  `CheckReport` as the care-label panel (mirror `artifacts/design/architecture.html`'s
+  styling so iOS and web look like one product). Optional voice context via a text field
   (full mic/Web Speech API can come later — it's the iOS "mic" analog).
 - **Dev loading:** unpacked extension + backend on `localhost:8000`. No store
   submission needed for personal use.
@@ -139,14 +148,19 @@ so the single-call shape carries over to `/check-listing` as-is.
 ## Build order (slices for the sub-agent)
 
 - **W1 — Backend seam.** Add `/check-listing`, the CDN fetcher, the seeded-facts
-  path in `run_check`, and the shared-secret header. Unit-testable with a fake
-  facts payload + a couple of real image URLs. *Validates the CDN-fetch finding.*
+  path through `run_check_traced`, and the shared-secret header. Unit-testable
+  with a fake facts payload + a couple of real image URLs. **Regression guard:**
+  run the existing suite after touching the engine —
+  `backend/.venv/bin/python -m pytest backend/tests`,
+  `phase-1-tests/test_search_trace.py`, and re-`review_run.py` the saved
+  Aelfric Eden run to confirm the screenshot path didn't degrade.
+  *Validates the CDN-fetch finding.*
 - **W2 — Extension skeleton.** Manifest V3, content script that extracts
   `__NEXT_DATA__` and `console.log`s the parsed facts + image URLs on a real
   product page. *Validates the `__NEXT_DATA__` shape.*
 - **W3 — Wire them.** Button → POST → render `CheckReport` in-page. First real
   end-to-end web verdict.
-- **W4 — Polish + gate both ways.** Style to match `architecture.html`; confirm
+- **W4 — Polish + gate both ways.** Style to match `artifacts/design/architecture.html`; confirm
   the brand gate (Uniqlo OFF, Ralph Lauren / Aelfric Eden ON) on live listings;
   tighten CORS to the real extension ID; write the `docs/ios-to-web/` narrative.
 - **W5 (optional) — `web/` fallback page.** A drag-a-screenshot page hitting the
@@ -171,12 +185,30 @@ extracted facts + real CDN images, no screenshot.
 This brief is written to be handed to one implementation sub-agent. Recommended
 hand-off when the user is ready:
 
+- Branch off **`main`** (this plan, the Phase-1 engine, and the eval harness are
+  all merged there now), e.g. `claude/depop-web-app-impl`. Branching off `main`
+  keeps the impl PR independent of any other in-flight PR.
 - Spawn an implementation agent with **`isolation: "worktree"`** so it works on
-  an isolated checkout, on a new branch off this one, e.g.
-  `claude/depop-web-app-impl`. The worktree keeps the plan branch clean and is
-  auto-cleaned if nothing changes.
+  an isolated checkout. The worktree is auto-cleaned if nothing changes.
 - Point it at this file as its spec. It owns W1→W4 (W5 optional), commits per
-  slice, and surfaces the four live-validation results (a live `ANTHROPIC_API_KEY`
+  slice, and surfaces the live-validation results (a live `ANTHROPIC_API_KEY`
   and a real Depop session in the browser are its external dependencies).
 - Monorepo means no cross-repo wiring: it adds `extension/`, edits `backend/`,
   and writes `docs/ios-to-web/` all in one tree.
+
+## Inherited from main (use it, don't rebuild it)
+
+The Phase-1 eval/introspection harness is already on `main` — it is the
+**baseline + regression guard** for the engine changes W1 makes:
+
+- `phase-1-tests/` — `capture_run.py` (live), `review_run.py` (no API),
+  `rubric-template.md`, and the saved `runs/run-0-12:58am/` (the validated
+  Aelfric Eden run). `backend/app/search_trace.py` extracts the `web_search`
+  trace; `run_check_traced` exposes it.
+- `backend/tests/test_error_mapping.py` + `phase-1-tests/test_search_trace.py` —
+  no-API structural tests. Keep them green across the port.
+- **Input coupling to note:** `capture_run.py` feeds *screenshots*. The web path
+  feeds *facts + image URLs*. Don't fork the harness — extend it: add a
+  structured-input capture mode (or a thin adapter that fetches the image URLs to
+  bytes and reuses the same `run_check_traced` → rubric flow), so one eval
+  pipeline covers both input paths.
