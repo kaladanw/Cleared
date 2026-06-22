@@ -21,6 +21,9 @@ unchanged. The trace is a separate debug artifact.
 - `review_run.py` — no API call. Prints a run's report next to its search trace
   for side-by-side judgment, and points at the rubric.
 - `rubric-template.md` — the per-run scorecard (criteria from real Depop buying).
+- `expectations.json` + `check_expectations.py` — machine-checkable saved-run
+  expectations for obvious regressions (auth gate, question count, required
+  measurement terms). Run this before manual rubric review.
 - `test_search_trace.py` — structural validation of the extractor against the
   real anthropic SDK block types. No API call.
 - `runs/<name>/` — one folder per run: `*-output.json`, `*-search-trace.json`,
@@ -43,6 +46,16 @@ backend/.venv/bin/python phase-1-tests/review_run.py run-1-ralph-lauren
 ```
 
 Then open `runs/run-1-ralph-lauren/*-rubric.md` and score it.
+
+## Check saved-run expectations (no API call)
+
+```sh
+backend/.venv/bin/python phase-1-tests/check_expectations.py
+```
+
+This catches mechanical regressions before manual review, such as an auth gate
+flipping, missing seller questions, or measurement terms disappearing from runs
+where fit info is absent.
 
 ## Validate the extractor (no API call)
 

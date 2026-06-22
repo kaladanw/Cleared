@@ -1,0 +1,24 @@
+{
+    "runs": {
+        "run-0-12:58am": {
+            "error_must_be_null": true,
+            "auth_applicable": true,
+            "min_auth_red_flags": 1,
+            "min_auth_inspection_items": 2,
+            "min_questions": 2,
+            "max_questions": 4,
+            "required_missing_info_terms": ["pit-to-pit", "length", "shoulder"],
+            "required_question_terms": ["pit-to-pit", "length"],
+            "required_verdict_terms": ["measurements"]
+        },
+        "run-1-9:32am": {
+            "error_must_be_null": true,
+            "auth_applicable": false,
+            "min_questions": 2,
+            "max_questions": 4,
+            "required_missing_info_terms": ["pit-to-pit", "length", "sleeve"],
+            "required_question_terms": ["pit-to-pit", "length"],
+            "required_verdict_terms": ["fit"]
+        }
+    }
+}
