@@ -10,10 +10,19 @@
 
 ## Where we are
 
-Phase 1 (the Claude vision → `CheckReport` engine) is **built and validated live**
-(2026-06-21, Aelfric Eden polo — see `phase-1-tests/runs/run-0-12:58am/`). The
-format + `web_search` single-call risk is **confirmed working** (memory:
-`phase-1-validated`). Two follow-on improvements just landed on `main` via PRs:
+Phase 1 (the Claude vision → `CheckReport` engine) is **built and validated live**.
+The format + `web_search` single-call risk is **confirmed working** (memory:
+`phase-1-validated`).
+
+Live validation runs:
+
+- **Brand gate ON** — Aelfric Eden polo, saved at
+  `phase-1-tests/runs/run-0-12:58am/`.
+- **Brand gate OFF** — Kenneth Cole leather jacket, saved at
+  `phase-1-tests/runs/run-1-9:32am/`; confirms `auth_flag.applicable == false`
+  with empty red flags / inspection list for a non-fakeable brand.
+
+Follow-on backend/eval improvements are merged on `main`:
 
 - **Honest error handling** — `claude_check.py :: _user_error_for()` maps Anthropic
   SDK exceptions to calibrated `CheckReport.error` messages; "try again" only for
@@ -24,7 +33,15 @@ format + `web_search` single-call risk is **confirmed working** (memory:
   hands back the raw msg. Harness in `phase-1-tests/`: `capture_run.py` (live
   capture → per-run folder), `review_run.py` (no-call side-by-side),
   `rubric-template.md` (7-criterion reasoning scorecard, with an unbuilt
-  Reddit/social seam). Test: `./backend/.venv/bin/python phase-1-tests/test_search_trace.py`.
+  Reddit/social seam). Test:
+  `./backend/.venv/bin/python phase-1-tests/test_search_trace.py`.
+- **Phase 2 listing-trust tightening** — PR #5 added more explicit prompt
+  instructions for missing measurements, material/condition uncertainty, photo
+  sufficiency, and send-ready seller questions. It also added no-API saved-run
+  expectations: `phase-1-tests/check_expectations.py`,
+  `phase-1-tests/expectations.json`, and `phase-1-tests/test_expectations.py`.
+  Run:
+  `./backend/.venv/bin/python phase-1-tests/check_expectations.py`.
 
 The web port has started:
 
@@ -40,23 +57,30 @@ The web port has started:
   POST to `http://localhost:8000/check-listing`, and in-page `CheckReport`
   rendering.
 
-## Immediate next step — the one Phase 1 loose end
+## Immediate next step
 
-Confirm the brand gate in the **OFF** direction. Drop a **non-fakeable-brand**
-screenshot (e.g. Uniqlo) into `test_shots/`, then capture a real run and check
-`auth_flag.applicable == false`:
+The iOS/backend track is ready to move toward **Phase 3: iOS app + Share
+Extension + voice context**. Before coding Phase 3, the next agent should read:
+
+1. `CLAUDE.md`
+2. all files in `claude.mds/`
+3. `docs/superpowers/specs/2026-06-21-phase-2-listing-trust-design.md`
+4. `docs/superpowers/plans/2026-06-21-phase-2-listing-trust.md`
+
+For a quick backend confidence check before starting iOS work:
 
 ```sh
-cd backend && ./.venv/bin/uvicorn app.main:app --port 8000   # shell 1
-# shell 2 — or use phase-1-tests/capture_run.py to also save the search trace:
-./backend/.venv/bin/python phase-1-tests/capture_run.py --name run-1-uniqlo \
-  --context "..." test_shots/<shot>.png
+cd /Users/kaladanwuke/Developer/cleared
+cd backend && ./.venv/bin/python -m unittest discover -v
+cd ..
+backend/.venv/bin/python phase-1-tests/test_search_trace.py
+backend/.venv/bin/python phase-1-tests/test_expectations.py
+backend/.venv/bin/python phase-1-tests/check_expectations.py
 ```
 
-Needs `ANTHROPIC_API_KEY` in `backend/.env.local` AND **Console credits** (API
-billing is separate from the claude.ai Pro plan — a real run costs pennies). The
-brand gate ON direction is already proven (Aelfric Eden run-0). After this:
-Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
+If the next task is another backend eval slice instead of iOS UI, keep it on a
+PR branch and do not touch `extension/` unless explicitly working on the web
+track.
 
 ## Open threads (not blocking)
 
@@ -64,6 +88,10 @@ Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
   confirm `__NEXT_DATA__` field names, confirm CDN image URLs return bytes
   server-side, then click through the injected extension panel against the local
   backend.
+- **Live Phase 2 eval** — the prompt/rubric/expectation harness is in place, but
+  no new paid Phase 2 live run has been captured after the prompt change. If the
+  next backend-focused agent has a fresh screenshot and Console credits, capture a
+  new run and review it with the updated rubric.
 - **`subagent-coding` skill** — global skill at `~/.claude/skills/subagent-coding/`
   (also a private GitHub repo `kaladanw/claude-skills`). It's the playbook for
   spinning up coding subagents on branches/PRs — read it before doing that again.
@@ -71,10 +99,11 @@ Phase 2 (tighten listing-trust / measurement detection), then Phase 3 (iOS app).
 
 ## Git state
 
-- Branch `main`; local work has moved past the older handoff commits with the web
-  backend seam and extension skeleton.
+- Branch `main`, synced with `origin/main` at `0f247c2` after merging PR #5
+  (`claude/phase-2-listing-trust`).
 - Both feature branches (`eval-system`, `billing-error-handling`) merged via PRs
-  #1/#2 and deleted (local + remote). Only `main` + the web-plan branch remain.
+  #1/#2 and deleted (local + remote). Web track branches may still exist while
+  that work is active.
 - Identity: `kaladanw`. Repo: `github.com/kaladanw/Cleared`.
 
 ## Env notes
