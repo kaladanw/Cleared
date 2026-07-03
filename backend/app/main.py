@@ -49,7 +49,10 @@ def health() -> dict:
 async def check(
     images: list[UploadFile] = [],
     user_context: str | None = Form(None),
+    x_cleared_token: str | None = Header(None, alias="X-Cleared-Token"),
 ) -> CheckReport:
+    _require_token(x_cleared_token)
+
     loaded: list[tuple[bytes, str]] = []
     for f in images:
         media_type = f.content_type if f.content_type in _ALLOWED_IMAGE_TYPES else "image/jpeg"
