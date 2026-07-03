@@ -22,6 +22,22 @@ MODEL = os.environ.get("CLEARED_MODEL", "claude-opus-4-8")
 
 # Brands worth an authenticity pass for THIS buyer's closet. Tunable — keep it a
 # config list, not buried in the prompt. Matched case-insensitively as substrings.
+#
+# Brand gate flow (both directions confirmed in phase-1 runs):
+#   1. _build_user_text() injects the list into the user message so Claude knows
+#      which brands get the auth pass in the prompt itself.
+#   2. Claude sets auth_flag.applicable=True only for fakeable brands; it is
+#      instructed to set it False for all others ("Do not invent counterfeit
+#      concerns for unfaked brands").
+#   3. _enforce_brand_gate() is the belt-and-suspenders backstop: it reads the
+#      brand from report.listing_facts.brand (which Claude filled in) and silences
+#      auth_flag unconditionally for any brand not in this list, regardless of what
+#      Claude returned. This catches model drift or hallucination.
+#
+# Verified both directions:
+#   - Ralph Lauren / Aelfric Eden → auth_flag.applicable=True (gate ON)
+#   - Uniqlo, Kenneth Cole, generic items → auth_flag.applicable=False (gate OFF)
+#   See phase-1-tests/runs/ for the saved live runs confirming both paths.
 FAKEABLE_BRANDS = [
     "nike",
     "new balance",

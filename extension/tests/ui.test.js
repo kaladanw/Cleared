@@ -77,4 +77,18 @@ describe("ui rendering", () => {
     assert.match(renderLoadingHtml(), /Checking listing/);
     assert.match(renderErrorHtml("Network down"), /Network down/);
   });
+
+  it("applies recommendation-specific pill class (brand gate carry-through)", () => {
+    // buy → cleared-pill--buy (green)
+    const buy = renderReportHtml({ verdict: { recommendation: "buy", one_line: "Good deal." }, price_read: {}, listing_trust: {}, auth_flag: {} });
+    assert.match(buy, /cleared-pill--buy/);
+
+    // negotiate → cleared-pill--negotiate (amber)
+    const neg = renderReportHtml({ verdict: { recommendation: "negotiate", one_line: "Ask first." }, price_read: {}, listing_trust: {}, auth_flag: {} });
+    assert.match(neg, /cleared-pill--negotiate/);
+
+    // skip → cleared-pill--skip (thread red)
+    const skip = renderReportHtml({ verdict: { recommendation: "skip", one_line: "Pass." }, price_read: {}, listing_trust: {}, auth_flag: {} });
+    assert.match(skip, /cleared-pill--skip/);
+  });
 });

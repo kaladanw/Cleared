@@ -1,19 +1,51 @@
+/*
+ * Cleared extension — care-label design system
+ * Matches artifacts/design/architecture.html color tokens and typographic voice.
+ *
+ * Google Fonts import loads Barlow Condensed + IBM Plex fonts. All rules are
+ * scoped to .cleared-panel (injected root) so they do not bleed into Depop's UI.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+/* ---- Design tokens (from architecture.html) ---- */
 .cleared-panel {
+  --calico:        #EAE5D9;
+  --muslin:        #F4F0E6;
+  --card:          #FBF8F1;
+  --indigo:        #1C2433;
+  --indigo-2:      #283246;
+  --thread:        #D1352A;
+  --cleared-green: #3B7D5B;
+  --kraft:         #C7A878;
+  --text:          #23262E;
+  --soft:          #5A6275;
+  --soft-d:        #9AA0B0;
+  --line:          #CFC7B5;
+  --disp:          'Barlow Condensed', system-ui, sans-serif;
+  --body:          'IBM Plex Sans', system-ui, sans-serif;
+  --mono:          'IBM Plex Mono', ui-monospace, monospace;
+
   position: fixed;
   top: 88px;
   right: 18px;
   z-index: 2147483647;
-  width: min(360px, calc(100vw - 32px));
+  width: min(340px, calc(100vw - 32px));
   max-height: calc(100vh - 112px);
   overflow: auto;
   box-sizing: border-box;
-  padding: 14px;
-  border: 1px solid #d7d3cc;
-  border-radius: 8px;
-  background: #fffdf8;
-  color: #191714;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
-  font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 16px 16px 14px;
+
+  /* Care-label aesthetic: muslin background + stitched dashed edge */
+  background: var(--muslin);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 4px;
+  outline: 2px dashed #C3BBA6;
+  outline-offset: -7px;
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.55);
 }
 
 .cleared-panel *,
@@ -22,66 +54,119 @@
   box-sizing: border-box;
 }
 
+/* ---- Panel header ---- */
 .cleared-panel__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
+/* "CLEARED" eyebrow — IBM Plex Mono uppercase tracking */
 .cleared-kicker {
-  color: #6f665a;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--soft);
 }
 
+/* "Second opinion" label under eyebrow */
+.cleared-panel__top strong {
+  display: block;
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  margin-top: 2px;
+}
+
+/* Check button — indigo fill, mono uppercase label */
 .cleared-button {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid #1f1d1a;
-  border-radius: 6px;
-  background: #1f1d1a;
-  color: #fffdf8;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1.5px solid var(--indigo);
+  border-radius: 4px;
+  background: var(--indigo);
+  color: var(--muslin);
   cursor: pointer;
-  font: inherit;
-  font-weight: 700;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.cleared-button:hover:not(:disabled) {
+  background: var(--indigo-2);
+  border-color: var(--indigo-2);
 }
 
 .cleared-button:disabled {
   cursor: wait;
-  opacity: 0.65;
+  opacity: 0.55;
 }
 
+/* ---- Buyer context field ---- */
 .cleared-context {
   display: block;
   margin-top: 12px;
-  color: #5e574d;
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
 }
 
 .cleared-context textarea {
   display: block;
   width: 100%;
   margin-top: 5px;
-  padding: 8px;
-  border: 1px solid #d7d3cc;
-  border-radius: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
   resize: vertical;
-  background: #fff;
-  color: #191714;
-  font: inherit;
+  background: var(--card);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 12px;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
+.cleared-context textarea:focus {
+  outline: none;
+  border-color: var(--indigo);
+}
+
+/* ---- Output area ---- */
 .cleared-output {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
-.cleared-status,
+/* Loading state — mono eyebrow style */
+.cleared-status {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+/* ---- Report card ---- */
 .cleared-report {
-  border-top: 1px solid #e4ded4;
+  border-top: 1px solid var(--line);
   padding-top: 12px;
 }
 
@@ -93,85 +178,149 @@
   margin: 0;
 }
 
-.cleared-report h3 {
-  font-size: 15px;
-  line-height: 1.25;
-}
-
+/* Section label — mono, thread-red, tight tracking */
 .cleared-report h4 {
-  margin-top: 12px;
-  margin-bottom: 6px;
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: var(--thread);
+  margin-top: 12px;
+  margin-bottom: 5px;
 }
 
-.cleared-report ul {
-  padding-left: 18px;
-}
-
-.cleared-report li + li {
-  margin-top: 4px;
-}
-
+/* Verdict header area */
 .cleared-report__header {
   display: grid;
-  gap: 6px;
+  gap: 5px;
+  margin-bottom: 4px;
 }
 
-.cleared-pill {
-  width: fit-content;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: #ece6dc;
-  color: #423b32;
-  font-size: 11px;
+/* Verdict one-liner — Barlow Condensed, indigo, uppercase */
+.cleared-report h3 {
+  font-family: var(--disp);
   font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
+  color: var(--indigo);
+  line-height: 1.1;
 }
 
+/* Recommendation pill — color-coded by verdict */
+.cleared-pill {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /* default / negotiate */
+  background: #EDE4D0;
+  color: var(--indigo);
+}
+
+.cleared-pill--buy {
+  background: #D4EDDF;
+  color: #1E5C3A;
+}
+
+.cleared-pill--negotiate {
+  background: #F5EDDA;
+  color: #7A5B1A;
+}
+
+.cleared-pill--skip {
+  background: #F5DDD9;
+  color: var(--thread);
+}
+
+/* Price + trust two-column grid */
 .cleared-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
+/* Price data list — mono for the numbers */
 .cleared-report dl {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .cleared-report dl div {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .cleared-report dt {
-  color: #6f665a;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--soft);
+  white-space: nowrap;
 }
 
 .cleared-report dd {
   margin: 0;
-  font-weight: 700;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--indigo);
   text-align: right;
 }
 
+/* Trust + questions lists */
+.cleared-report ul {
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.cleared-report li {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cleared-report li + li {
+  margin-top: 3px;
+}
+
+/* Muted helper text */
 .cleared-muted {
-  color: #6f665a;
+  font-size: 12px;
+  color: var(--soft);
 }
 
-.cleared-report--error {
-  color: #7a1f13;
+/* Error state */
+.cleared-report--error h3 {
+  font-family: var(--body);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--thread);
 }
 
+.cleared-report--error p {
+  font-size: 12px;
+  color: var(--soft);
+  margin-top: 5px;
+}
+
+/* ---- Responsive: bottom sheet on narrow screens ---- */
 @media (max-width: 560px) {
   .cleared-panel {
     top: auto;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
     width: auto;
-    max-height: 68vh;
+    max-height: 72vh;
   }
 
   .cleared-grid {

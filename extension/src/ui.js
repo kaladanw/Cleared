@@ -22,10 +22,24 @@
     const auth = report.auth_flag || {};
     const verdict = report.verdict || {};
 
+    // Brand gate note: auth_flag.applicable is set by Claude based on the
+    // FAKEABLE_BRANDS list injected in the prompt, then enforced server-side by
+    // _enforce_brand_gate() in claude_check.py. Uniqlo → false; Ralph Lauren /
+    // Aelfric Eden → true. The UI trusts what the backend sends — no client-side
+    // brand logic here; the gate is backend-only to avoid drift.
+    const rec = verdict.recommendation || "";
+    const pillClass = rec === "buy"
+      ? "cleared-pill cleared-pill--buy"
+      : rec === "negotiate"
+        ? "cleared-pill cleared-pill--negotiate"
+        : rec === "skip"
+          ? "cleared-pill cleared-pill--skip"
+          : "cleared-pill";
+
     return `
       <section class="cleared-report">
         <header class="cleared-report__header">
-          <span class="cleared-pill">${escapeHtml(verdict.recommendation || "check")}</span>
+          <span class="${pillClass}">${escapeHtml(rec || "check")}</span>
           <h3>${escapeHtml(verdict.one_line || "Cleared check")}</h3>
         </header>
         <div class="cleared-grid">
