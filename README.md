@@ -34,3 +34,8 @@ python scripts/try_extract.py "https://www.depop.com/products/<...>/"
 Phase 0 is "done" when a real listing returns its photos + price + title.
 The Depop page shape is the one fragile unknown — if extraction comes back
 empty, paste a listing URL and we'll adjust `app/depop.py` to match the live JSON.
+
+## IOS Backend (Phase 3 W1)
+
+Cloud hosted ios backend using Railway. Added token gate in /check in @main.py to block possible
+token rerouting by hackers. When cleaning up the project, I should combine the separate /check-listing and /check into one function.
