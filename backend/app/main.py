@@ -36,7 +36,7 @@ app = FastAPI(title="Cleared", version="0.1.0")
 # to "*" so curl / Share Extension / the web fallback page work without config.
 _extension_origin = os.environ.get("CLEARED_EXTENSION_ORIGIN", "")
 _cors_origins: list[str] = (
-    [_extension_origin, "http://localhost:8000", "http://localhost:3000"]
+    [_extension_origin, "https://www.depop.com", "http://localhost:8000", "http://localhost:3000"]
     if _extension_origin
     else ["*"]
 )
@@ -44,7 +44,7 @@ _cors_origins: list[str] = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_methods=["POST", "GET"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

@@ -13,8 +13,53 @@
   const IMG_URL_RE = /https?:\/\/[^\s"'<>]+?\.(?:jpe?g|png|webp)(?:\?[^\s"'<>]*)?/gi;
 
   function extractListingFromDocument(doc) {
-    const script = doc.querySelector('script#__NEXT_DATA__');
-    return extractListingFromNextDataJson(script ? script.textContent : "");
+    // Try ld+json (schema.org Product) first — Depop dropped __NEXT_DATA__ in 2026
+    const ldScript = doc.querySelector('script[type="application/ld+json"]');
+    if (ldScript) {
+      const result = extractListingFromLdJson(ldScript.textContent);
+      if (result.image_urls.length) return result;
+    }
+    // Fallback: __NEXT_DATA__ (kept for any pages that still embed it)
+    const nextScript = doc.querySelector('script#__NEXT_DATA__');
+    return extractListingFromNextDataJson(nextScript ? nextScript.textContent : "");
+  }
+
+  function extractListingFromLdJson(jsonText) {
+    let data;
+    try {
+      data = JSON.parse(jsonText || "{}");
+    } catch (_err) {
+      return emptyListing();
+    }
+
+    // Handle both single Product and @graph arrays
+    const product = data["@type"] === "Product" ? data
+      : (data["@graph"] || []).find(n => n["@type"] === "Product");
+    if (!product) return emptyListing();
+
+    const images = Array.isArray(product.image) ? product.image
+      : (product.image ? [product.image] : []);
+    if (!images.length) return emptyListing();
+
+    const offers = product.offers || {};
+    const conditionUrl = offers.itemCondition || "";
+    const condition = conditionUrl.includes("Used") ? "Used"
+      : conditionUrl.includes("New") ? "New" : null;
+
+    return {
+      facts: {
+        brand: product.brand?.name || null,
+        model_or_name: product.name ? product.name.split("\n")[0].trim() : null,
+        category: null,
+        size: null,
+        listed_condition: condition,
+        asking_price: offers.price ? parseFloat(offers.price) : null,
+        currency: offers.priceCurrency || "USD",
+        photo_observations: [],
+      },
+      image_urls: images.slice(0, 8),
+      description: product.description || product.name || "",
+    };
   }
 
   function extractListingFromNextDataJson(jsonText) {
