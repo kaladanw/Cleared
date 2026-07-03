@@ -29,10 +29,21 @@ log = logging.getLogger("cleared")
 
 app = FastAPI(title="Cleared", version="0.1.0")
 
-# The Share Extension and local dev tools call this directly.
+# CORS: tighten to the extension origin + localhost once the extension ID is known.
+# Set CLEARED_EXTENSION_ORIGIN to the chrome-extension:// URI (visible in
+# chrome://extensions after loading unpacked) to lock down the deployed backend.
+# When unset (local dev, iOS Share Extension, no deployed extension yet) falls back
+# to "*" so curl / Share Extension / the web fallback page work without config.
+_extension_origin = os.environ.get("CLEARED_EXTENSION_ORIGIN", "")
+_cors_origins: list[str] = (
+    [_extension_origin, "http://localhost:8000", "http://localhost:3000"]
+    if _extension_origin
+    else ["*"]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
