@@ -94,3 +94,8 @@ class CheckListingRequest(BaseModel):
     user_context: Optional[str] = Field(
         None, description="Transcribed voice note, e.g. 'it's a gift, must be legit'"
     )
+    listing_url: Optional[str] = Field(
+        None,
+        description="The Depop listing URL (window.location.href from the extension). "
+        "Used to store and look up cached reports in Supabase.",
+    )
