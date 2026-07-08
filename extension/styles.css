@@ -33,6 +33,7 @@
   width: min(340px, calc(100vw - 32px));
   max-height: calc(100vh - 112px);
   overflow: auto;
+  resize: both;
   box-sizing: border-box;
   padding: 16px 16px 14px;
 

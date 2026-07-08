@@ -34,6 +34,36 @@
   const button = container.querySelector(".cleared-button");
   const textarea = container.querySelector("textarea");
   const output = container.querySelector(".cleared-output");
+  const header = container.querySelector(".cleared-panel__top");
+
+  // Drag to reposition — grab from anywhere except interactive elements
+  const DRAG_SKIP = new Set(["BUTTON", "TEXTAREA", "INPUT", "A", "SELECT"]);
+  container.style.cursor = "grab";
+  let dragging = false, startX = 0, startY = 0, originLeft = 0, originTop = 0;
+  container.addEventListener("mousedown", (e) => {
+    if (DRAG_SKIP.has(e.target.tagName)) return;
+    const rect = container.getBoundingClientRect();
+    container.style.right = "auto";
+    container.style.left = rect.left + "px";
+    container.style.top = rect.top + "px";
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    originLeft = rect.left;
+    originTop = rect.top;
+    container.style.cursor = "grabbing";
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    container.style.left = (originLeft + e.clientX - startX) + "px";
+    container.style.top  = (originTop  + e.clientY - startY) + "px";
+  });
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    container.style.cursor = "grab";
+  });
 
   button.addEventListener("click", async () => {
     button.disabled = true;
