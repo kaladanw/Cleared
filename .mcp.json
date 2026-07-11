@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "stdio",
+      "command": "/opt/homebrew/opt/node/bin/npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase"
+      ],
+      "env": {
+        "PATH": "/opt/homebrew/opt/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "SUPABASE_ACCESS_TOKEN": "REPLACE_WITH_YOUR_TOKEN"
+      }
+    }
+  }
+}

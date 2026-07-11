@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Cleared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Read Depop listing facts for a Cleared check.",
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "*://*.depop.com/products/*",
     "http://localhost:8000/*"
@@ -14,6 +17,7 @@
       ],
       "js": [
         "src/extractor.js",
+        "src/auth.js",
         "src/client.js",
         "src/ui.js",
         "content-script.js"

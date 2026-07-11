@@ -15,6 +15,9 @@ from fastapi.testclient import TestClient
 from app import claude_check
 from app.models import CheckReport, ListingFacts, Verdict
 
+# Fake user returned by get_current_user in tests that bypass auth.
+_FAKE_USER = {"id": "test-user-id", "email": "test@test.com"}
+
 
 class FetchImagesTests(unittest.TestCase):
     def test_fetch_images_keeps_only_allowed_images_and_derives_media_type(self):
@@ -98,19 +101,29 @@ class SeededFactsTests(unittest.TestCase):
 
 
 class CheckListingEndpointTests(unittest.TestCase):
-    def setUp(self):
-        self._old_token = os.environ.pop("CLEARED_SHARED_TOKEN", None)
+    """Tests for POST /check-listing.
+
+    /check-listing now requires JWT auth (Authorization: Bearer <token>).
+    Happy-path tests bypass auth via FastAPI dependency_overrides.
+    The auth test verifies that a missing header returns 401.
+    """
+
+    def _make_client_with_auth(self):
+        """Return a TestClient with get_current_user overridden to return a fake user."""
+        from app import main
+        from app.auth import get_current_user
+
+        main.app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
+        client = TestClient(main.app)
+        return client, main
 
     def tearDown(self):
-        if self._old_token is not None:
-            os.environ["CLEARED_SHARED_TOKEN"] = self._old_token
-        else:
-            os.environ.pop("CLEARED_SHARED_TOKEN", None)
-
-    def test_check_listing_fetches_images_and_runs_check_without_token_in_dev(self):
         from app import main
+        main.app.dependency_overrides.clear()
 
-        client = TestClient(main.app)
+    def test_check_listing_fetches_images_and_runs_check(self):
+        client, main = self._make_client_with_auth()
+
         report = CheckReport(
             listing_facts=ListingFacts(brand="Uniqlo"),
             verdict=Verdict(one_line="looks fair"),
@@ -134,10 +147,11 @@ class CheckListingEndpointTests(unittest.TestCase):
         self.assertEqual(seeded.brand, "Uniqlo")
         self.assertEqual(run.call_args.kwargs["user_context"], "gift")
 
-    def test_check_listing_requires_token_when_configured(self):
+    def test_check_listing_requires_auth_when_no_jwt(self):
+        """Missing Authorization header → 401 (Supabase not configured in test env)."""
         from app import main
-
-        os.environ["CLEARED_SHARED_TOKEN"] = "secret"
+        # Do NOT override get_current_user — let it run as-is.
+        # With no SUPABASE_URL set, it raises 503 (unavailable) or 401 (missing header).
         client = TestClient(main.app)
 
         response = client.post(
@@ -145,12 +159,11 @@ class CheckListingEndpointTests(unittest.TestCase):
             json={"facts": {}, "image_urls": ["https://media-photos.depop.com/item.jpg"]},
         )
 
+        # Missing Authorization header always returns 401 before any Supabase check.
         self.assertEqual(response.status_code, 401)
 
     def test_check_listing_returns_report_error_when_no_images_fetch(self):
-        from app import main
-
-        client = TestClient(main.app)
+        client, main = self._make_client_with_auth()
 
         with mock.patch.object(main, "fetch_images", return_value=[]), \
                 mock.patch.object(main, "run_check") as run:
