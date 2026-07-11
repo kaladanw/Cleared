@@ -18,6 +18,7 @@ describe("manifest", () => {
     assert.deepEqual(manifest.content_scripts[0].matches, ["*://*.depop.com/products/*"]);
     assert.deepEqual(manifest.content_scripts[0].js, [
       "src/extractor.js",
+      "src/auth.js",
       "src/client.js",
       "src/ui.js",
       "content-script.js",
