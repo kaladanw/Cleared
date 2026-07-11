@@ -19,6 +19,10 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CODE_SIGN_STYLE: Automatic
+    # Shared by the host and extension. Override both at archive time, e.g.
+    # MARKETING_VERSION=1.0 CURRENT_PROJECT_VERSION=42.
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
 
 targets:
   Cleared:
@@ -94,3 +98,5 @@ schemes:
       config: Debug
       targets:
         - ClearedTests
+    archive:
+      config: Release

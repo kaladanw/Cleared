@@ -58,6 +58,10 @@ Work lives on branch **`worktree-phase-3-ios`** (worktree under
 
 ## What remains
 
+- **Distribution readiness:** `ios/RELEASE.md` is the practical signing,
+  versioning, artwork, metadata, privacy, TestFlight, and App Store checklist.
+  Host and extension versions now share `MARKETING_VERSION` and
+  `CURRENT_PROJECT_VERSION` in `ios/project.yml`.
 - **S6 (later) — voice.** Speech framework dictation → `user_context`.
 - Optional manual smoke test: Photos → select a saved screenshot → Share →
   Cleared, then compare the panel to the already verified host rendering.
