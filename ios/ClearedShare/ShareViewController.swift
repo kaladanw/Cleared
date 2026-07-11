@@ -138,8 +138,6 @@ private struct CheckingView: View {
     }
 }
 
-/// S3 placeholder rendering — S4 replaces this with the care-label panel.
-/// The error rule already applies: if report.error is set, show it and nothing else.
 private struct ReportView: View {
     let report: CheckReport
 
@@ -147,26 +145,7 @@ private struct ReportView: View {
         if let error = report.error {
             FailureView(message: error)
         } else {
-            List {
-                if let rec = report.verdict.recommendation {
-                    Section("Verdict") {
-                        Text(rec.rawValue.capitalized).font(.headline)
-                        Text(report.verdict.oneLine)
-                    }
-                }
-                Section("Price") {
-                    Text(report.priceRead.fairness?.rawValue.capitalized ?? "Couldn't verify")
-                    Text(report.priceRead.reasoning).font(.footnote)
-                }
-                if report.authFlag.applicable {
-                    Section("Authenticity flags") {
-                        ForEach(report.authFlag.redFlags, id: \.self, content: Text.init)
-                    }
-                }
-                Section("Questions to ask") {
-                    ForEach(report.listingTrust.questionsToAsk, id: \.self, content: Text.init)
-                }
-            }
+            CareLabelView(report: report)
         }
     }
 }
