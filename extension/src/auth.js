@@ -6,7 +6,7 @@
  */
 (function init(root) {
   const STORAGE_KEY = "cleared_jwt";
-  const DEFAULT_BACKEND_URL = "http://localhost:8000";
+  const DEFAULT_BACKEND_URL = "https://cleared-backend-production.up.railway.app";
 
   /** Read the stored JWT. Returns a Promise<string|null>. */
   function getToken() {

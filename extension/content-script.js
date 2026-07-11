@@ -3,11 +3,14 @@
   const client = globalThis.ClearedClient;
   const ui = globalThis.ClearedUi;
   const auth = globalThis.ClearedAuth;
+  const config = globalThis.ClearedConfig;
 
-  if (!extractor || !client || !ui || !auth) {
+  if (!extractor || !client || !ui || !auth || !config) {
     console.warn("[Cleared] extension modules unavailable");
     return;
   }
+
+  const backendUrl = await config.getBackendUrl();
 
   const listing = extractor.extractListingFromDocument(document);
   if (!listing.image_urls.length) {
@@ -61,7 +64,7 @@
   renderCheckPanel({ token });
 
   // ---- Cached revisit: check for a previously saved report for this URL ----
-  const cachedRow = await client.getCachedReport(window.location.href, { token });
+  const cachedRow = await client.getCachedReport(window.location.href, { token, backendUrl });
   if (cachedRow && cachedRow.report_json) {
     renderCachedReport(cachedRow.report_json, { token });
   }
@@ -97,7 +100,7 @@
       const password = form.querySelector("input[type=password]").value;
 
       try {
-        const data = await auth.loginRequest(email, password);
+        const data = await auth.loginRequest(email, password, backendUrl);
         await auth.setToken(data.access_token);
         // Re-initialise the full panel now that we have a token.
         container.remove();
@@ -165,6 +168,7 @@
         token,
         userContext: textarea ? textarea.value.trim() : "",
         listingUrl: window.location.href,
+        backendUrl,
       });
       output.innerHTML = ui.renderReportHtml(report);
     } catch (error) {

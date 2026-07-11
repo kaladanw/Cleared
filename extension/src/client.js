@@ -1,5 +1,5 @@
 (function init(root) {
-  const DEFAULT_BACKEND = "http://localhost:8000";
+  const DEFAULT_BACKEND = "https://cleared-backend-production.up.railway.app";
   const DEFAULT_BACKEND_URL = DEFAULT_BACKEND + "/check-listing";
 
   function buildCheckListingRequest(listing, userContext, listingUrl) {
@@ -38,7 +38,11 @@
       options.listingUrl,
     );
 
-    const response = await fetchImpl(options.backendUrl || DEFAULT_BACKEND_URL, {
+    const backend = options.backendUrl || DEFAULT_BACKEND;
+    const endpoint = backend.endsWith("/check-listing")
+      ? backend
+      : backend.replace(/\/$/, "") + "/check-listing";
+    const response = await fetchImpl(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
