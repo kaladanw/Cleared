@@ -7,9 +7,9 @@
 
 ## Where we are
 
-**Phase 3 (iOS app + Share Extension) is mid-flight: slices S1–S3 are built,
-tested, and committed; S4–S5 remain.** The engine (phases 0–2) and the live
-Railway backend are done and stable.
+**Phase 3 (iOS app + Share Extension) slices S1–S5 are built and tested.**
+The engine (phases 0–2) and the live Railway backend are done and stable.
+S6 voice input remains intentionally deferred.
 
 Work lives on branch **`worktree-phase-3-ios`** (worktree under
 `.claude/worktrees/phase-3-ios/`). Commits so far:
@@ -25,41 +25,43 @@ Work lives on branch **`worktree-phase-3-ios`** (worktree under
   `MultipartBody` + `ClearedAPIClient` (multipart POST `/check`,
   `X-Cleared-Token`, 240 s timeout). Fixture-decode tests against copies of the
   phase-1 saved runs in `ios/ClearedTests/Fixtures/`.
-- **S3 extension flow** (in working tree at handoff time; commit if not already):
+- `1495bbb` — **S3 extension flow**:
   `ShareIngest` (NSItemProvider → UIImage, max 4), `UIImage+Downscale`
   (≤1600 px JPEG 0.8), `CheckSession` state machine
   (ingest → compose → checking → finished/failed), full SwiftUI panel in
   `ShareViewController.swift` with the staged "honest wait" progress view and
-  an S3-placeholder report view. **All 8 unit tests green.**
+  an S3-placeholder report view.
+- `f9c89ba` — **S4 care-label UI**: verdict-first stitched label, honest nullable
+  prices, suggested offer, trust groups, tap-to-copy questions, brand-gated
+  authenticity assist, and collapsed listing facts.
+- **S5 validation + persistence**: successful reports save atomically to the
+  shared app-group container and the host app re-displays the latest report.
+  **All 8 unit tests green.**
 
-## Live verification state (S3)
+## Live verification state (S5)
 
-- The Swift client was proven against the **real** Railway backend from a
-  macOS harness (job tmp dir, not in repo): loads the saved Aelfric Eden
-  screenshot, re-encodes JPEG like the extension, posts with the real token.
-- That harness first surfaced a real incident: the running deployment had a
-  dead `ANTHROPIC_API_KEY` (rotated after a chat-transcript exposure;
-  `--skip-deploys` meant the container kept the old value). Logs showed
-  Anthropic 401 → the backend's calibrated "misconfigured on our end" error
-  rendered correctly through the whole Swift stack — the error path is
-  live-validated. The user re-set the key and redeployed; a fresh live check
-  was still in flight when this handoff was written. **First task: rerun one
-  live check** (see below) and confirm a real report comes back.
+- iPhone 17 Pro Simulator builds, tests, installs, and launches. Both saved-run
+  PNGs are loaded into Photos.
+- Live Railway gate-ON: Aelfric Eden → `skip`, `auth_applicable: true`, two
+  red flags, price estimates populated.
+- Live Railway gate-OFF: Kenneth Cole → `negotiate`, `auth_applicable: false`,
+  zero auth flags, price estimates populated.
+- Wrong token → HTTP 401 with `Invalid Cleared token.`; the Swift client maps
+  401 to the explicit token-rejected failure surface.
+- The live Aelfric report was placed in the Simulator app-group container to
+  verify the persistence/readback path. Simulator UI automation opened the
+  host's Recent row and visually confirmed the full care-label rendering.
+- No physical iPhone was connected, so personal-signing/device installation
+  remains untested. Interactive Photos → share sheet selection was not
+  automated in this harness; S3's Swift request path and S5's live payloads
+  were verified separately against the same regression images.
 
-## What remains (per `claude.mds/phase-3.md`)
+## What remains
 
-- **S4 — care-label UI.** Replace the placeholder `ReportView` in
-  `ShareViewController.swift` with the full panel per the brief's section spec:
-  verdict badge first, price read with null-price honesty ("couldn't verify",
-  never 0), copyable trust questions, auth flag ONLY when `applicable`,
-  listing facts collapsed last, styled to match
-  `artifacts/design/architecture.html`.
-- **S5 — E2E + handoff.** Push saved-run PNGs into the simulator
-  (`xcrun simctl addmedia "iPhone 17 Pro" <png>`), share from Photos →
-  Cleared, confirm live reports for gate-ON (Aelfric Eden) and gate-OFF
-  (Kenneth Cole); wrong-token → honest 401 surface; update this file; merge to
-  `main`. Device install if an iPhone is around (free Apple ID signing).
 - **S6 (later) — voice.** Speech framework dictation → `user_context`.
+- Optional manual smoke test: Photos → select a saved screenshot → Share →
+  Cleared, then compare the panel to the already verified host rendering.
+- Install on a physical iPhone when one is available.
 
 ## How to build / test / verify
 
@@ -105,8 +107,8 @@ the extension, or curl `/check` with `-F 'images=@shot.png'` and the
 
 ## Git state
 
-- `main` is at `f5f6db1` (Railway deploy config + `/check` token gate), synced
-  with `origin/main`. Phase 3 branch: `worktree-phase-3-ios` (local only, not
-  pushed). Identity: `kaladanw`; repo `github.com/kaladanw/Cleared` (public).
+- Phase 3 branch: `worktree-phase-3-ios`; push the final S5 commit, then merge
+  to `main` when ready. Identity: `kaladanw`; repo
+  `github.com/kaladanw/Cleared` (public).
 - The web-extension track (`extension/`, `cleared-web` branch) is separate —
   don't touch it from iOS work.

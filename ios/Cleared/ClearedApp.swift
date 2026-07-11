@@ -13,6 +13,8 @@ struct ClearedApp: App {
 }
 
 struct HomeView: View {
+    @State private var lastReport: CheckReport?
+
     var body: some View {
         NavigationStack {
             List {
@@ -35,8 +37,35 @@ struct HomeView: View {
                         .foregroundStyle(.orange)
                     }
                 }
+                if let lastReport {
+                    Section("Recent") {
+                        NavigationLink {
+                            if let error = lastReport.error {
+                                ContentUnavailableView(
+                                    "Check unavailable",
+                                    systemImage: "exclamationmark.triangle",
+                                    description: Text(error)
+                                )
+                            } else {
+                                CareLabelView(report: lastReport)
+                                    .navigationTitle("Last check")
+                                    .navigationBarTitleDisplayMode(.inline)
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(lastReport.verdict.recommendation?.rawValue.capitalized ?? "Last check")
+                                    .font(.headline)
+                                Text(lastReport.verdict.oneLine)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                }
             }
             .navigationTitle("Cleared")
+            .onAppear { lastReport = LastReportStore.load() }
         }
     }
 }

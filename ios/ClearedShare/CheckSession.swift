@@ -42,6 +42,9 @@ final class CheckSession: ObservableObject {
                 images: payloads,
                 userContext: trimmed.isEmpty ? nil : trimmed
             )
+            // A report is useful in the host app after the share sheet closes.
+            // Persistence failure must never hide a valid result from the user.
+            try? LastReportStore.save(report)
             phase = .finished(report)
         } catch let error as ClearedAPIError {
             phase = .failed(error.errorDescription ?? "Something went wrong.")
