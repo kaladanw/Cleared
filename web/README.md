@@ -37,3 +37,12 @@ The project requires no runtime environment variables. `vercel.json` enables cle
 ## Deferred application surface
 
 Universal Links, Cleared-owned check-ID routing, authenticated report history, and convergence between iOS screenshot checks and web URL checks are intentionally out of scope. Those features should arrive as an application layer with an explicit data and authentication design; this site does not create placeholder routes that could constrain it.
+
+## Extension/backend handoff
+
+The browser extension is packaged against the existing Railway API at
+`https://cleared-backend-production.up.railway.app`. Its manifest also permits
+`http://localhost:8000` for development, but localhost is used only when the
+developer explicitly stores the override documented in `extension/README.md`.
+The Vercel marketing site does not proxy API requests and requires no backend
+environment variable for this slice.

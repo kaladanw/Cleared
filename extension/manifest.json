@@ -8,6 +8,7 @@
   ],
   "host_permissions": [
     "*://*.depop.com/products/*",
+    "https://cleared-backend-production.up.railway.app/*",
     "http://localhost:8000/*"
   ],
   "content_scripts": [
@@ -16,6 +17,7 @@
         "*://*.depop.com/products/*"
       ],
       "js": [
+        "src/config.js",
         "src/extractor.js",
         "src/auth.js",
         "src/client.js",

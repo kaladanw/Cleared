@@ -2,10 +2,13 @@ const assert = require("node:assert/strict");
 const { describe, it } = require("node:test");
 
 const {
+  DEFAULT_BACKEND,
   buildCheckListingRequest,
   postCheckListing,
   getCachedReport,
 } = require("../src/client.js");
+
+const RAILWAY_BACKEND = "https://cleared-backend-production.up.railway.app";
 
 describe("client", () => {
   it("builds the /check-listing request body from listing, context, and URL", () => {
@@ -67,6 +70,26 @@ describe("client", () => {
     );
   });
 
+  it("uses Railway by default and accepts a localhost base override", async () => {
+    assert.equal(DEFAULT_BACKEND, RAILWAY_BACKEND);
+    const calls = [];
+    const fetchImpl = async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => ({}) };
+    };
+
+    await postCheckListing({ facts: {}, image_urls: [] }, { fetchImpl });
+    await postCheckListing(
+      { facts: {}, image_urls: [] },
+      { backendUrl: "http://localhost:8000", fetchImpl },
+    );
+
+    assert.deepEqual(calls, [
+      RAILWAY_BACKEND + "/check-listing",
+      "http://localhost:8000/check-listing",
+    ]);
+  });
+
   it("throws a clear error when the backend returns a non-2xx response", async () => {
     const fakeFetch = async () => ({
       ok: false,
@@ -98,7 +121,7 @@ describe("client", () => {
     assert.equal(calls.length, 1);
     assert.equal(
       calls[0].url,
-      "http://localhost:8000/reports?url=" +
+      RAILWAY_BACKEND + "/reports?url=" +
         encodeURIComponent("https://www.depop.com/products/some-item/"),
     );
     assert.equal(calls[0].options.headers["Authorization"], "Bearer jwt-token");
