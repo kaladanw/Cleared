@@ -7,9 +7,12 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let root = ShareRootView(onDone: { [weak self] in
-            self?.extensionContext?.completeRequest(returningItems: nil)
-        })
+        let root = ShareRootView(
+            extensionContext: extensionContext,
+            onDone: { [weak self] in
+                self?.extensionContext?.completeRequest(returningItems: nil)
+            }
+        )
         let host = UIHostingController(rootView: root)
         addChild(host)
         view.addSubview(host.view)
@@ -19,31 +22,167 @@ final class ShareViewController: UIViewController {
     }
 }
 
-/// S1 placeholder — S3 replaces this with ingest → context → check → report.
 struct ShareRootView: View {
+    let extensionContext: NSExtensionContext?
     let onDone: () -> Void
+
+    @StateObject private var session = CheckSession()
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                Image(systemName: "checkmark.seal")
-                    .font(.largeTitle)
-                Text("Cleared")
-                    .font(.headline)
-                Text(
-                    ClearedConfig.isConfigured
-                        ? "Backend configured — flow lands in S3."
-                        : "Backend not configured."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            content
+                .navigationTitle("Cleared")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done", action: onDone)
+                    }
+                }
+        }
+        .task { await session.ingest(from: extensionContext) }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch session.phase {
+        case .ingesting:
+            ProgressView("Reading screenshots…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .composing:
+            ComposeView(session: session)
+        case .checking:
+            CheckingView()
+        case .finished(let report):
+            ReportView(report: report)
+        case .failed(let message):
+            FailureView(message: message)
+        }
+    }
+}
+
+/// Thumbnails + optional buyer context + the one primary button.
+private struct ComposeView: View {
+    @ObservedObject var session: CheckSession
+
+    var body: some View {
+        Form {
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(session.images.enumerated()), id: \.offset) { _, image in
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 72, height: 108)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                }
+            } header: {
+                Text("\(session.images.count) screenshot\(session.images.count == 1 ? "" : "s")")
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: onDone)
+
+            Section("Anything you care about? (optional)") {
+                TextField(
+                    "e.g. it's a gift, I care more that it's legit",
+                    text: $session.userContext,
+                    axis: .vertical
+                )
+                .lineLimit(2...4)
+            }
+
+            Section {
+                Button {
+                    Task { await session.runCheck() }
+                } label: {
+                    Text("Check")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
                 }
             }
         }
+    }
+}
+
+/// The honest wait: a check takes ~30–90 s, so say what's happening.
+private struct CheckingView: View {
+    private static let stages = [
+        "Reading the listing…",
+        "Checking retail and used prices…",
+        "Weighing trust signals…",
+        "Writing the verdict…",
+    ]
+    @State private var stageIndex = 0
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+            Text(Self.stages[stageIndex])
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .contentTransition(.opacity)
+            Text("This takes about a minute — real research, not a spinner.")
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(18))
+                withAnimation {
+                    stageIndex = min(stageIndex + 1, Self.stages.count - 1)
+                }
+            }
+        }
+    }
+}
+
+/// S3 placeholder rendering — S4 replaces this with the care-label panel.
+/// The error rule already applies: if report.error is set, show it and nothing else.
+private struct ReportView: View {
+    let report: CheckReport
+
+    var body: some View {
+        if let error = report.error {
+            FailureView(message: error)
+        } else {
+            List {
+                if let rec = report.verdict.recommendation {
+                    Section("Verdict") {
+                        Text(rec.rawValue.capitalized).font(.headline)
+                        Text(report.verdict.oneLine)
+                    }
+                }
+                Section("Price") {
+                    Text(report.priceRead.fairness?.rawValue.capitalized ?? "Couldn't verify")
+                    Text(report.priceRead.reasoning).font(.footnote)
+                }
+                if report.authFlag.applicable {
+                    Section("Authenticity flags") {
+                        ForEach(report.authFlag.redFlags, id: \.self, content: Text.init)
+                    }
+                }
+                Section("Questions to ask") {
+                    ForEach(report.listingTrust.questionsToAsk, id: \.self, content: Text.init)
+                }
+            }
+        }
+    }
+}
+
+private struct FailureView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text(message)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
