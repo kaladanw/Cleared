@@ -50,7 +50,7 @@ honestly ask the user to sign in again inside the extension.
    channel; the website intentionally does not claim a public download exists.
 4. Replace the support placeholder with a monitored address or form.
 5. Finalize the privacy policy's report retention period and verify the production terms and retention settings for hosting, auth/database, and AI processors.
-6. Lock backend CORS to the reviewed Vercel production/preview origins when those hostnames are final.
+6. Lock backend CORS to the reviewed Vercel production/preview origins when those hostnames are final: set `CLEARED_WEB_ORIGINS` (comma-separated) on the Railway backend to the Vercel prod domain and/or preview domain — see `backend/.env.example`.
 7. Verify signup, login, `/privacy`, and `/support` on the production domain, including mobile layout, TLS, metadata, keyboard navigation, and a real support/deletion request.
 
 ## Deferred application surface

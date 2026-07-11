@@ -34,17 +34,40 @@ log = logging.getLogger("cleared")
 
 app = FastAPI(title="Cleared", version="0.2.0")
 
-# CORS: tighten to the extension origin + localhost once the extension ID is known.
-# Set CLEARED_EXTENSION_ORIGIN to the chrome-extension:// URI (visible in
-# chrome://extensions after loading unpacked) to lock down the deployed backend.
-# When unset (local dev, iOS Share Extension, no deployed extension yet) falls back
-# to "*" so curl / Share Extension / the web fallback page work without config.
+# CORS: tighten to the extension origin + web origins + localhost once those
+# hostnames are known. Set CLEARED_EXTENSION_ORIGIN to the chrome-extension://
+# URI (visible in chrome://extensions after loading unpacked) and/or
+# CLEARED_WEB_ORIGINS to a comma-separated list of allowed web origins (e.g. the
+# Vercel production and preview domains) to lock down the deployed backend.
+# When NEITHER is set (local dev, iOS Share Extension, no deployed
+# extension/site yet) falls back to "*" so curl / Share Extension / the web
+# fallback page work without config.
+def _build_cors_origins(extension_origin: str, web_origins: str) -> list[str]:
+    """Build the deduped CORS allowlist from the two env-var inputs.
+
+    Falls back to ["*"] only when both inputs are empty — preserves the
+    original single-origin (or wide-open) behavior for local dev and the
+    current Railway deployment.
+    """
+    web_origin_list = [origin.strip() for origin in web_origins.split(",") if origin.strip()]
+
+    if not extension_origin and not web_origin_list:
+        return ["*"]
+
+    origins = [
+        *([extension_origin] if extension_origin else []),
+        *web_origin_list,
+        "https://www.depop.com",
+        "http://localhost:8000",
+        "http://localhost:3000",
+    ]
+    # Dedupe while preserving order.
+    return list(dict.fromkeys(origins))
+
+
 _extension_origin = os.environ.get("CLEARED_EXTENSION_ORIGIN", "")
-_cors_origins: list[str] = (
-    [_extension_origin, "https://www.depop.com", "http://localhost:8000", "http://localhost:3000"]
-    if _extension_origin
-    else ["*"]
-)
+_web_origins = os.environ.get("CLEARED_WEB_ORIGINS", "")
+_cors_origins: list[str] = _build_cors_origins(_extension_origin, _web_origins)
 
 app.add_middleware(
     CORSMiddleware,
