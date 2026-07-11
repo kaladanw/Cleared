@@ -11,5 +11,8 @@ venv/
 # Local test screenshots (not part of the repo)
 test_shots/
 
+# Claude Code agent worktrees
+.claude/worktrees/
+
 # OS
 .DS_Store
