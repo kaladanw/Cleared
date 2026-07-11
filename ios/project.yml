@@ -1,0 +1,96 @@
+# XcodeGen manifest — the source of truth for Cleared.xcodeproj.
+# Regenerate after editing:  cd ios && xcodegen generate
+# The .xcodeproj is gitignored; this file is what gets reviewed.
+name: Cleared
+
+options:
+  bundleIdPrefix: com.kaladanw
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+# Secrets.xcconfig (gitignored) carries CLEARED_BACKEND_URL / CLEARED_SHARED_TOKEN
+# into build settings; the `info` blocks below surface them to runtime code.
+configFiles:
+  Debug: Secrets.xcconfig
+  Release: Secrets.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  Cleared:
+    type: application
+    platform: iOS
+    sources:
+      - Cleared
+      - ClearedKit
+    dependencies:
+      - target: ClearedShare
+    entitlements:
+      path: Cleared/Cleared.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kaladanw.cleared
+    info:
+      path: Cleared/Info.plist
+      properties:
+        CFBundleDisplayName: Cleared
+        UILaunchScreen: {}
+        ClearedBackendURL: $(CLEARED_BACKEND_URL)
+        ClearedSharedToken: $(CLEARED_SHARED_TOKEN)
+    settings:
+      base:
+        # Extension IDs must be children of the app ID; set both explicitly.
+        PRODUCT_BUNDLE_IDENTIFIER: com.kaladanw.cleared
+
+  ClearedShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ClearedShare
+      - ClearedKit
+    entitlements:
+      path: ClearedShare/ClearedShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kaladanw.cleared
+    info:
+      path: ClearedShare/Info.plist
+      properties:
+        CFBundleDisplayName: Cleared
+        ClearedBackendURL: $(CLEARED_BACKEND_URL)
+        ClearedSharedToken: $(CLEARED_SHARED_TOKEN)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 4
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kaladanw.cleared.share
+
+  ClearedTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - ClearedTests
+      - ClearedKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Cleared:
+    build:
+      targets:
+        Cleared: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ClearedTests
