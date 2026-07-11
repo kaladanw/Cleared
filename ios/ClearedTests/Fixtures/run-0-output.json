@@ -1,0 +1,66 @@
+{
+    "listing_facts": {
+        "brand": "Aelfric Eden",
+        "model_or_name": "'Speed Racer' V-neck short-sleeve knit polo sweater (cream/black, embroidered crest + script logo)",
+        "category": "Sweaters (short-sleeve knit polo)",
+        "size": "Tag appears to read S \u2014 not explicitly stated in the listing text",
+        "listed_condition": "Like new",
+        "asking_price": 28.0,
+        "currency": "USD",
+        "photo_observations": [
+            "Cream/oatmeal short-sleeve V-neck knit with black ribbed collar and black contrast shoulder panels",
+            "Embroidered gold/blue crest on chest, 'Speed Racer' text top-left, cursive 'Aelfric Eden' script across chest",
+            "Blue woven brand tag at neck reads 'AELFRIC EDEN' with a size letter",
+            "Only the front is shown in the main photo; carousel shows 5 images total",
+            "Free shipping; item shows a 'Sold' state with a 'Show interest' prompt"
+        ]
+    },
+    "price_read": {
+        "retail_estimate": 72.0,
+        "used_estimate_low": 27.0,
+        "used_estimate_high": 40.0,
+        "fairness": "fair",
+        "suggested_offer_low": 22.0,
+        "suggested_offer_high": 26.0,
+        "reasoning": "Aelfric Eden knit polo/V-neck sweaters typically retail around $60-80 new on the brand site and Amazon. On the resale side (Poshmark, ThredUp, eBay), used Aelfric Eden sweaters commonly land in the ~$27-40 range. At $28 with free shipping for a 'Like new' piece, this sits at the low end of used comps and is a clear discount vs new \u2014 so the price is fair-to-good, not a rip-off. Numbers are approximate ranges from comparable listings, not an exact match for this specific style. Note the screenshot shows a 'Sold' indicator, so it may already be gone."
+    },
+    "listing_trust": {
+        "missing_info": [
+            "No measurements anywhere (pit-to-pit, length, shoulder) \u2014 fit is a total guess, especially since Aelfric Eden runs oversized",
+            "Size not stated in the title/description; only faintly visible on the neck tag",
+            "Main image only shows the front \u2014 no back, no tag close-up, no fabric/condition detail in view",
+            "'Like new' is vague with no close-ups to confirm pilling, stains, or stretched cuffs"
+        ],
+        "concerns": [
+            "Brand often sells in an oversized fit, so without measurements the actual wearable size is unclear",
+            "'Sold' status in the screenshot \u2014 confirm it's still available before getting attached"
+        ],
+        "questions_to_ask": [
+            "Can you share pit-to-pit, total length, and shoulder measurements laid flat?",
+            "What size is on the tag, and would you say it fits true to size or oversized?",
+            "Can you post clear photos of the back, the neck/brand tag, and any close-up of the knit?",
+            "Any flags \u2014 pilling, snags, stretched cuffs, or marks I should know about?"
+        ]
+    },
+    "auth_flag": {
+        "applicable": true,
+        "red_flags": [
+            "'Speed Racer' embroidery \u2014 Aelfric Eden's actual graphic on these is usually 'Speed Racing', so the wording is worth double-checking against official product photos",
+            "Aelfric Eden is widely dupe'd/relisted, and at the budget price tier mislabeled or lookalike knits do circulate",
+            "No close-up of the neck tag or any inner labels to compare stitching and font"
+        ],
+        "what_to_inspect": [
+            "Neck tag: woven 'AELFRIC EDEN' font, color, and stitch quality vs the brand's official tags",
+            "Embroidery quality \u2014 clean, dense stitching on the crest and script vs loose/fuzzy threads",
+            "Compare the exact graphic text and crest to the same style on aelfriceden.com or Amazon",
+            "Inner care/composition label and any logo placement consistency"
+        ],
+        "confidence": "low"
+    },
+    "verdict": {
+        "recommendation": "negotiate",
+        "one_line": "Fair price and a legit discount vs retail \u2014 just nail down measurements and a tag close-up before you commit, since there's zero fit info and a couple small detail mismatches to verify.",
+        "user_context": "browsing, want to know if this is fair and legit before I offer"
+    },
+    "error": null
+}
