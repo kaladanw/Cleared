@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cleared — History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ---- Design tokens (matches extension/styles.css care-label system) ---- */
+    :root {
+      --calico:        #EAE5D9;
+      --muslin:        #F4F0E6;
+      --card:          #FBF8F1;
+      --indigo:        #1C2433;
+      --indigo-2:      #283246;
+      --thread:        #D1352A;
+      --cleared-green: #3B7D5B;
+      --kraft:         #C7A878;
+      --text:          #23262E;
+      --soft:          #5A6275;
+      --soft-d:        #9AA0B0;
+      --line:          #CFC7B5;
+      --disp:          'Barlow Condensed', system-ui, sans-serif;
+      --body:          'IBM Plex Sans', system-ui, sans-serif;
+      --mono:          'IBM Plex Mono', ui-monospace, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--calico);
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ---- Layout ---- */
+    .page {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    /* ---- Header ---- */
+    .site-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1.5px solid var(--line);
+    }
+
+    .site-header__brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+
+    .site-header h1 {
+      margin: 0;
+      font-family: var(--disp);
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--indigo);
+      line-height: 1.1;
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 13px;
+      border: 1.5px solid var(--indigo);
+      border-radius: 4px;
+      background: var(--indigo);
+      color: var(--muslin);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+
+    .btn:hover { background: var(--indigo-2); border-color: var(--indigo-2); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn--ghost {
+      background: transparent;
+      color: var(--indigo);
+    }
+    .btn--ghost:hover { background: rgba(28,36,51,0.06); }
+
+    /* ---- Login card ---- */
+    #login-view {
+      display: flex;
+      justify-content: center;
+      padding: 48px 0;
+    }
+
+    .login-card {
+      background: var(--card);
+      border-radius: 6px;
+      outline: 2px dashed #C3BBA6;
+      outline-offset: -7px;
+      padding: 28px 28px 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 10px 30px -8px rgba(0,0,0,0.2);
+    }
+
+    .login-card .kicker { margin-bottom: 4px; }
+    .login-card h2 {
+      margin: 0 0 20px;
+      font-family: var(--disp);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--indigo);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+
+    .field input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--muslin);
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 13px;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--indigo);
+    }
+
+    .login-card .btn { width: 100%; justify-content: center; margin-top: 4px; }
+
+    .login-error {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--thread);
+      display: none;
+    }
+
+    /* ---- Reports view ---- */
+    #reports-view { display: none; }
+
+    .reports-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .reports-count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--soft);
+      letter-spacing: 0.08em;
+    }
+
+    /* ---- Report card ---- */
+    .report-card {
+      background: var(--card);
+      border-radius: 5px;
+      outline: 1.5px solid var(--line);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .report-summary {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .report-summary:hover { background: rgba(0,0,0,0.02); }
+
+    /* Verdict pill */
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: #EDE4D0;
+      color: var(--indigo);
+      white-space: nowrap;
+    }
+
+    .pill--buy      { background: #D4EDDF; color: #1E5C3A; }
+    .pill--negotiate { background: #F5EDDA; color: #7A5B1A; }
+    .pill--skip     { background: #F5DDD9; color: var(--thread); }
+
+    .report-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--indigo);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .report-name a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .report-name a:hover { text-decoration: underline; }
+
+    .report-date {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--soft);
+      white-space: nowrap;
+    }
+
+    .report-toggle {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--soft-d);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Expanded report detail */
+    .report-detail {
+      display: none;
+      padding: 0 14px 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .report-detail.open { display: block; }
+
+    /* Price + trust grid inside detail */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 480px) {
+      .detail-grid { grid-template-columns: 1fr; }
+      .report-summary { grid-template-columns: auto 1fr auto; }
+      .report-toggle { display: none; }
+    }
+
+    .detail-section h4 {
+      margin: 0 0 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--thread);
+    }
+
+    .detail-section dl {
+      display: grid;
+      gap: 3px;
+      margin: 0;
+    }
+
+    .detail-section dl div {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .detail-section dt {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--soft);
+      white-space: nowrap;
+    }
+
+    .detail-section dd {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--indigo);
+      text-align: right;
+    }
+
+    .detail-section ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .detail-section li {
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .detail-section li + li { margin-top: 2px; }
+
+    .detail-verdict {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .detail-verdict p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--indigo);
+    }
+
+    /* ---- Empty / loading states ---- */
+    .state-msg {
+      text-align: center;
+      padding: 48px 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+
+    .error-msg {
+      color: var(--thread);
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="site-header">
+    <div class="site-header__brand">
+      <span class="kicker">Cleared</span>
+      <h1>History</h1>
+    </div>
+    <button class="btn btn--ghost" id="signout-btn" style="display:none" onclick="signOut()">Sign out</button>
+  </header>
+
+  <!-- Login view -->
+  <div id="login-view">
+    <div class="login-card">
+      <span class="kicker">Cleared</span>
+      <h2>Sign in</h2>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="field">
+          <label for="email-input">Email</label>
+          <input id="email-input" type="email" autocomplete="email" required placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="password-input">Password</label>
+          <input id="password-input" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+        <button class="btn" type="submit" id="login-btn">Sign in</button>
+        <p class="login-error" id="login-error"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reports view (shown after login) -->
+  <div id="reports-view">
+    <div class="reports-header">
+      <span class="reports-count" id="reports-count"></span>
+    </div>
+    <div id="reports-list"></div>
+  </div>
+</div>
+
+<script>
+  // ---- Auth ----
+  const BACKEND = "";  // same origin — no prefix needed
+
+  function getToken() { return localStorage.getItem("cleared_jwt"); }
+  function setToken(t) { localStorage.setItem("cleared_jwt", t); }
+  function clearToken() { localStorage.removeItem("cleared_jwt"); }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById("login-btn");
+    const errEl = document.getElementById("login-error");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Signing in…";
+
+    try {
+      const resp = await fetch(BACKEND + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("email-input").value,
+          password: document.getElementById("password-input").value,
+        }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || "Login failed");
+      }
+      const data = await resp.json();
+      setToken(data.access_token);
+      showReports();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Sign in";
+    }
+  }
+
+  function signOut() {
+    clearToken();
+    document.getElementById("reports-view").style.display = "none";
+    document.getElementById("login-view").style.display = "flex";
+    document.getElementById("signout-btn").style.display = "none";
+  }
+
+  // ---- Report loading ----
+  async function showReports() {
+    document.getElementById("login-view").style.display = "none";
+    document.getElementById("reports-view").style.display = "block";
+    document.getElementById("signout-btn").style.display = "";
+
+    const list = document.getElementById("reports-list");
+    const countEl = document.getElementById("reports-count");
+    list.innerHTML = '<p class="state-msg">Loading…</p>';
+
+    const token = getToken();
+    try {
+      const resp = await fetch(BACKEND + "/api/reports", {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      if (resp.status === 401) { signOut(); return; }
+      if (!resp.ok) throw new Error("Could not load history (" + resp.status + ")");
+
+      const reports = await resp.json();
+      if (!reports.length) {
+        list.innerHTML = '<p class="state-msg">No checks yet — use the extension on a Depop listing to get started.</p>';
+        countEl.textContent = "0 checks";
+        return;
+      }
+
+      countEl.textContent = reports.length + " check" + (reports.length !== 1 ? "s" : "");
+      list.innerHTML = reports.map(renderCard).join("");
+
+      // Expand/collapse
+      list.querySelectorAll(".report-summary").forEach(summary => {
+        summary.addEventListener("click", () => {
+          const detail = summary.nextElementSibling;
+          const isOpen = detail.classList.toggle("open");
+          summary.querySelector(".report-toggle").textContent = isOpen ? "Collapse" : "Details";
+        });
+      });
+    } catch (err) {
+      list.innerHTML = '<p class="state-msg" style="color:var(--thread)">' + esc(err.message) + "</p>";
+    }
+  }
+
+  // ---- Rendering ----
+  function renderCard(row) {
+    const report = row.report_json || {};
+    const price = report.price_read || {};
+    const trust = report.listing_trust || {};
+    const auth = report.auth_flag || {};
+    const verdict = report.verdict || {};
+    const rec = row.verdict || verdict.recommendation || "";
+    const pillClass = "pill" + (rec === "buy" ? " pill--buy" : rec === "negotiate" ? " pill--negotiate" : rec === "skip" ? " pill--skip" : "");
+    const name = esc(row.listing_name || "Unnamed listing");
+    const date = formatDate(row.checked_at);
+    const url = esc(row.listing_url || "#");
+    const oneLine = esc(verdict.one_line || "");
+
+    const priceRows = [
+      ["Retail",  money(price.retail_estimate)],
+      ["Used",    range(price.used_estimate_low, price.used_estimate_high)],
+      ["Offer",   range(price.suggested_offer_low, price.suggested_offer_high)],
+      ["Read",    esc(price.fairness || "—")],
+    ];
+
+    const trustItems = [...(trust.missing_info || []), ...(trust.concerns || [])];
+    const questions = trust.questions_to_ask || [];
+
+    const authSection = auth.applicable
+      ? `<div class="detail-section" style="margin-top:12px">
+          <h4>Authenticity</h4>
+          ${listHtml([...(auth.red_flags || []), ...(auth.what_to_inspect || [])])}
+          <p style="font-size:11px;font-family:var(--mono);color:var(--soft);margin-top:4px">Confidence: ${esc(auth.confidence || "unknown")}</p>
+        </div>`
+      : "";
+
+    return `
+      <article class="report-card">
+        <div class="report-summary">
+          <span class="${pillClass}">${esc(rec || "check")}</span>
+          <span class="report-name"><a href="${url}" target="_blank" rel="noreferrer noopener" onclick="event.stopPropagation()">${name}</a></span>
+          <span class="report-date">${date}</span>
+          <span class="report-toggle">Details</span>
+        </div>
+        <div class="report-detail">
+          ${oneLine ? `<div class="detail-verdict"><h4 style="margin:12px 0 4px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--thread)">Verdict</h4><p>${oneLine}</p></div>` : ""}
+          <div class="detail-grid">
+            <div class="detail-section">
+              <h4>Price</h4>
+              <dl>${priceRows.map(([k,v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
+            </div>
+            <div class="detail-section">
+              <h4>Trust</h4>
+              ${trustItems.length ? listHtml(trustItems) : '<p style="font-size:12px;color:var(--soft)">No issues flagged.</p>'}
+            </div>
+          </div>
+          ${questions.length ? `<div class="detail-section" style="margin-top:12px"><h4>Questions to ask</h4>${listHtml(questions)}</div>` : ""}
+          ${authSection}
+          ${price.reasoning ? `<div class="detail-section" style="margin-top:12px"><h4>Price reasoning</h4><p style="font-size:12px;color:var(--soft)">${esc(price.reasoning)}</p></div>` : ""}
+        </div>
+      </article>
+    `;
+  }
+
+  function listHtml(items) {
+    return `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`;
+  }
+
+  function money(v) { return Number.isFinite(v) ? "$" + Math.round(v) : "—"; }
+
+  function range(lo, hi) {
+    if (Number.isFinite(lo) && Number.isFinite(hi)) return "$" + Math.round(lo) + "–$" + Math.round(hi);
+    if (Number.isFinite(lo)) return "$" + Math.round(lo) + "+";
+    if (Number.isFinite(hi)) return "up to $" + Math.round(hi);
+    return "—";
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    } catch { return iso.slice(0, 10); }
+  }
+
+  function esc(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  // ---- Init ----
+  (function init() {
+    if (getToken()) {
+      showReports();
+    } else {
+      document.getElementById("login-view").style.display = "flex";
+    }
+  })();
+</script>
+</body>
+</html>

@@ -33,6 +33,7 @@
   width: min(340px, calc(100vw - 32px));
   max-height: calc(100vh - 112px);
   overflow: auto;
+  resize: both;
   box-sizing: border-box;
   padding: 16px 16px 14px;
 
@@ -310,6 +311,60 @@
   font-size: 12px;
   color: var(--soft);
   margin-top: 5px;
+}
+
+/* ---- Login form (injected when no JWT is stored) ---- */
+.cleared-login {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.cleared-login__msg {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.cleared-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cleared-login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.cleared-login__field input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cleared-login__field input:focus {
+  outline: none;
+  border-color: var(--indigo);
+}
+
+.cleared-login__error {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--thread);
 }
 
 /* ---- Responsive: bottom sheet on narrow screens ---- */

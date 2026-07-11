@@ -14,10 +14,15 @@ describe("manifest", () => {
     assert.equal(manifest.manifest_version, 3);
     assert.ok(manifest.host_permissions.includes("*://*.depop.com/products/*"));
     assert.ok(manifest.host_permissions.includes("http://localhost:8000/*"));
+    assert.ok(manifest.host_permissions.includes(
+      "https://cleared-backend-production.up.railway.app/*",
+    ));
     assert.equal(manifest.content_scripts.length, 1);
     assert.deepEqual(manifest.content_scripts[0].matches, ["*://*.depop.com/products/*"]);
     assert.deepEqual(manifest.content_scripts[0].js, [
+      "src/config.js",
       "src/extractor.js",
+      "src/auth.js",
       "src/client.js",
       "src/ui.js",
       "content-script.js",

@@ -2,28 +2,34 @@ const assert = require("node:assert/strict");
 const { describe, it } = require("node:test");
 
 const {
+  DEFAULT_BACKEND,
   buildCheckListingRequest,
   postCheckListing,
+  getCachedReport,
 } = require("../src/client.js");
 
+const RAILWAY_BACKEND = "https://cleared-backend-production.up.railway.app";
+
 describe("client", () => {
-  it("builds the /check-listing request body from listing and context", () => {
+  it("builds the /check-listing request body from listing, context, and URL", () => {
     const body = buildCheckListingRequest(
       {
         facts: { brand: "Uniqlo", asking_price: 18 },
         image_urls: ["https://media-photos.depop.com/item.jpg"],
       },
       "gift",
+      "https://www.depop.com/products/some-item/",
     );
 
     assert.deepEqual(body, {
       facts: { brand: "Uniqlo", asking_price: 18 },
       image_urls: ["https://media-photos.depop.com/item.jpg"],
       user_context: "gift",
+      listing_url: "https://www.depop.com/products/some-item/",
     });
   });
 
-  it("posts JSON to the backend and includes the shared token when provided", async () => {
+  it("posts JSON to the backend with a Bearer token when provided", async () => {
     const calls = [];
     const fakeFetch = async (url, options) => {
       calls.push({ url, options });
@@ -40,8 +46,9 @@ describe("client", () => {
       },
       {
         backendUrl: "http://localhost:8000/check-listing",
-        token: "secret",
+        token: "jwt-token",
         userContext: "gift",
+        listingUrl: "https://www.depop.com/products/some-item/",
         fetchImpl: fakeFetch,
       },
     );
@@ -51,15 +58,36 @@ describe("client", () => {
     assert.equal(calls[0].url, "http://localhost:8000/check-listing");
     assert.equal(calls[0].options.method, "POST");
     assert.equal(calls[0].options.headers["Content-Type"], "application/json");
-    assert.equal(calls[0].options.headers["X-Cleared-Token"], "secret");
+    assert.equal(calls[0].options.headers["Authorization"], "Bearer jwt-token");
     assert.equal(
       calls[0].options.body,
       JSON.stringify({
         facts: { brand: "Uniqlo" },
         image_urls: ["https://media-photos.depop.com/item.jpg"],
         user_context: "gift",
+        listing_url: "https://www.depop.com/products/some-item/",
       }),
     );
+  });
+
+  it("uses Railway by default and accepts a localhost base override", async () => {
+    assert.equal(DEFAULT_BACKEND, RAILWAY_BACKEND);
+    const calls = [];
+    const fetchImpl = async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => ({}) };
+    };
+
+    await postCheckListing({ facts: {}, image_urls: [] }, { fetchImpl });
+    await postCheckListing(
+      { facts: {}, image_urls: [] },
+      { backendUrl: "http://localhost:8000", fetchImpl },
+    );
+
+    assert.deepEqual(calls, [
+      RAILWAY_BACKEND + "/check-listing",
+      "http://localhost:8000/check-listing",
+    ]);
   });
 
   it("throws a clear error when the backend returns a non-2xx response", async () => {
@@ -73,5 +101,36 @@ describe("client", () => {
       () => postCheckListing({ facts: {}, image_urls: [] }, { fetchImpl: fakeFetch }),
       /Backend returned 401/,
     );
+  });
+
+  it("fetches a cached report with the Bearer token, null without one", async () => {
+    const calls = [];
+    const fakeFetch = async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true,
+        json: async () => ({ report_json: { verdict: { recommendation: "skip" } } }),
+      };
+    };
+
+    const row = await getCachedReport("https://www.depop.com/products/some-item/", {
+      token: "jwt-token",
+      fetchImpl: fakeFetch,
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      RAILWAY_BACKEND + "/reports?url=" +
+        encodeURIComponent("https://www.depop.com/products/some-item/"),
+    );
+    assert.equal(calls[0].options.headers["Authorization"], "Bearer jwt-token");
+    assert.deepEqual(row, { report_json: { verdict: { recommendation: "skip" } } });
+
+    const noToken = await getCachedReport("https://www.depop.com/x/", {
+      fetchImpl: fakeFetch,
+    });
+    assert.equal(noToken, null);
+    assert.equal(calls.length, 1, "no request is made without a token");
   });
 });

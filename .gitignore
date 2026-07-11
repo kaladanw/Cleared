@@ -18,5 +18,11 @@ build/
 # Local test screenshots (not part of the repo)
 test_shots/
 
+# Claude Code agent worktrees
+.claude/worktrees/
+
+# Human-only TODOs (dashboard clicks, account setup, DNS, etc.) — not code
+flags/
+
 # OS
 .DS_Store
