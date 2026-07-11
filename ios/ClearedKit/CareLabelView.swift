@@ -96,13 +96,13 @@ private struct PriceSection: View {
     var body: some View {
         LabelSection(title: "Price read") {
             HStack(alignment: .top, spacing: 10) {
-                PriceMetric(label: "Asking", value: money(facts.askingPrice))
-                PriceMetric(label: "Retail", value: money(price.retailEstimate, approximate: true))
-                PriceMetric(label: "Used", value: range(price.usedEstimateLow, price.usedEstimateHigh))
+                PriceMetric(label: "Asking", value: PriceFormatting.money(facts.askingPrice, currency: facts.currency))
+                PriceMetric(label: "Retail", value: PriceFormatting.money(price.retailEstimate, currency: facts.currency, approximate: true))
+                PriceMetric(label: "Used", value: PriceFormatting.range(price.usedEstimateLow, price.usedEstimateHigh, currency: facts.currency))
             }
 
             LabelRow(label: "Market read", value: price.fairness?.rawValue.capitalized ?? "Couldn't verify")
-            LabelRow(label: "Suggested offer", value: range(price.suggestedOfferLow, price.suggestedOfferHigh))
+            LabelRow(label: "Suggested offer", value: PriceFormatting.range(price.suggestedOfferLow, price.suggestedOfferHigh, currency: facts.currency))
 
             Text(price.reasoning)
                 .font(.footnote)
@@ -111,16 +111,32 @@ private struct PriceSection: View {
         }
     }
 
-    private func money(_ value: Double?, approximate: Bool = false) -> String {
+}
+
+enum PriceFormatting {
+    static func money(
+        _ value: Double?,
+        currency: String,
+        approximate: Bool = false,
+        locale: Locale = .current
+    ) -> String {
         guard let value else { return "Couldn't verify" }
-        return "\(approximate ? "~" : "")\(value.formatted(.currency(code: facts.currency).precision(.fractionLength(value.rounded() == value ? 0 : 2))))"
+        let style = FloatingPointFormatStyle<Double>.Currency(code: currency)
+            .precision(.fractionLength(value.rounded() == value ? 0 : 2))
+            .locale(locale)
+        return "\(approximate ? "~" : "")\(value.formatted(style))"
     }
 
-    private func range(_ low: Double?, _ high: Double?) -> String {
+    static func range(
+        _ low: Double?,
+        _ high: Double?,
+        currency: String,
+        locale: Locale = .current
+    ) -> String {
         switch (low, high) {
-        case let (low?, high?): "\(money(low))–\(money(high))"
-        case let (low?, nil): "From \(money(low))"
-        case let (nil, high?): "Up to \(money(high))"
+        case let (low?, high?): "\(money(low, currency: currency, locale: locale))–\(money(high, currency: currency, locale: locale))"
+        case let (low?, nil): "From \(money(low, currency: currency, locale: locale))"
+        case let (nil, high?): "Up to \(money(high, currency: currency, locale: locale))"
         case (nil, nil): "Couldn't verify"
         }
     }
