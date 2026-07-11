@@ -63,6 +63,28 @@ Work lives on branch **`worktree-phase-3-ios`** (worktree under
   Cleared, then compare the panel to the already verified host rendering.
 - Install on a physical iPhone when one is available.
 
+## Cross-platform / distribution decision (2026-07-11)
+
+- The web product may continue to ingest listing URLs; iOS remains deliberately
+  screenshot-first. Do **not** try to reconstruct a Depop URL from seller
+  details, item names, or pixels: it is ambiguous, fragile, and reintroduces
+  the dependency on Depop's URL surface that iOS intentionally avoids.
+- The eventual web ↔ iOS connection is through a Cleared-owned `check_id` and
+  an authenticated user's report history. Both clients create/read the same
+  owned report; neither needs the other client's source input.
+- Later, a Cleared-domain report URL (for example `/check/<id>`) can be a
+  Universal Link: it opens the installed iOS app or falls back to the Vercel
+  web report. This needs user accounts, report ownership/authorization,
+  backend persistence, and the domain's Associated Domains/AASA setup, so it
+  is explicitly deferred from Phase 3.
+- Distribution work now splits into two isolated branches/tasks: iOS release
+  foundation from `worktree-phase-3-ios`, and Vercel launch + iOS handoff from
+  `cleared-web`. The immediate web scope is a landing page plus privacy,
+  support, and download/TestFlight CTA—not Universal Links yet.
+- Before any public App Store release, replace the app-embedded shared backend
+  token with real access control and usage limits. Keeping it only in an
+  xcconfig keeps it out of git, not out of a distributed app binary.
+
 ## How to build / test / verify
 
 ```sh
@@ -107,8 +129,9 @@ the extension, or curl `/check` with `-F 'images=@shot.png'` and the
 
 ## Git state
 
-- Phase 3 branch: `worktree-phase-3-ios`; push the final S5 commit, then merge
-  to `main` when ready. Identity: `kaladanw`; repo
+- Phase 3 branch: `worktree-phase-3-ios`; commits are pushed but do **not**
+  merge to `main` until the physical-device smoke test passes. Identity:
+  `kaladanw`; repo
   `github.com/kaladanw/Cleared` (public).
 - The web-extension track (`extension/`, `cleared-web` branch) is separate —
   don't touch it from iOS work.
