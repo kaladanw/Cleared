@@ -1,113 +1,123 @@
-# Session handoff — live working state
+# Session handoff — live working state (2026-07-11)
 
-> Snapshot for a fresh Claude Code instance picking up mid-flight. Read the root
-> `CLAUDE.md` first (it auto-loads and imports `phase-1.md`) for the locked
-> decisions and architecture — this file is only the *live state* on top of that.
-> Keep this file in `claude.mds/` while it reflects live state; future agents
-> should find the current handoff here without digging through artifacts.
-> Historical snapshots belong in `artifacts/handoffs/` when this context is
-> superseded.
+> Snapshot for a fresh agent picking up mid-flight. Read the root `CLAUDE.md`
+> first (locked decisions + `CheckReport` contract), then `phase-web.md` for the
+> web track. This file is only the *live state* on top of those.
 
 ## Where we are
 
-Phase 1 (the Claude vision → `CheckReport` engine) is **built and validated live**.
-The format + `web_search` single-call risk is **confirmed working** (memory:
-`phase-1-validated`).
+The **web track is built, merged to `main`, and live end-to-end**:
 
-Live validation runs:
+- **Extension (Manifest V3, tested in Arc)** — injects a care-label panel on
+  Depop product pages, extracts listing facts from `application/ld+json`
+  (Depop dropped `__NEXT_DATA__` in 2026 — extractor tries ld+json first,
+  falls back to `__NEXT_DATA__`), login form → JWT in `chrome.storage.local`,
+  posts to `/check-listing` with `Authorization: Bearer`, renders the report,
+  drag-to-reposition + `resize: both`.
+- **Supabase (project `wmqykginjawebegifspi`)** — Auth (email/password,
+  invite-only via `CLEARED_ALLOWED_EMAILS`) + `reports` table (RLS on,
+  keyed by `user_id` + `listing_url`). Every check saves a row; revisiting a
+  listing renders the newest cached report with a Re-check button
+  (`GET /reports?url=` returns `limit(1)` by design — all rows are kept).
+- **History page** — `GET /history` serves a self-contained HTML page
+  (login → list of past checks). Deployed but **not yet manually verified**.
+- **Backend deployed on Railway** — project `cleared`, service
+  `cleared-backend`, **live at
+  `https://cleared-backend-production.up.railway.app`** with Supabase env vars
+  set and `/health`, `/history`, `/auth/login` verified against production.
+  Deploy: `cd backend && railway up --detach --service cleared-backend`
+  (Dockerfile build, healthcheck `/health`).
+- **Supabase MCP** wired in `.mcp.json` (token lives in the file locally — see
+  Security notes). Full flow verified live: signup → login → authed
+  `/check-listing` → row in Supabase → cached revisit in the extension.
 
-- **Brand gate ON** — Aelfric Eden polo, saved at
-  `phase-1-tests/runs/run-0-12:58am/`.
-- **Brand gate OFF** — Kenneth Cole leather jacket, saved at
-  `phase-1-tests/runs/run-1-9:32am/`; confirms `auth_flag.applicable == false`
-  with empty red flags / inspection list for a non-fakeable brand.
+Tests all green: 20 backend (`backend/.venv/bin/python -m pytest backend/tests`),
+12 extension (`cd extension && node --test tests/*.test.js`), plus
+`phase-1-tests/test_search_trace.py`.
 
-Follow-on backend/eval improvements are merged on `main`:
+## Decided (do not relitigate)
 
-- **Honest error handling** — `claude_check.py :: _user_error_for()` maps Anthropic
-  SDK exceptions to calibrated `CheckReport.error` messages; "try again" only for
-  truly transient failures. Tests: `backend/tests/test_error_mapping.py`
-  (`cd backend && ./.venv/bin/python -m unittest tests.test_error_mapping`).
-- **Eval + search-trace tooling** — `backend/app/search_trace.py` extracts the
-  `web_search` queries+results the report used to discard; `run_check_traced()`
-  hands back the raw msg. Harness in `phase-1-tests/`: `capture_run.py` (live
-  capture → per-run folder), `review_run.py` (no-call side-by-side),
-  `rubric-template.md` (7-criterion reasoning scorecard, with an unbuilt
-  Reddit/social seam). Test:
-  `./backend/.venv/bin/python phase-1-tests/test_search_trace.py`.
-- **Phase 2 listing-trust tightening** — PR #5 added more explicit prompt
-  instructions for missing measurements, material/condition uncertainty, photo
-  sufficiency, and send-ready seller questions. It also added no-API saved-run
-  expectations: `phase-1-tests/check_expectations.py`,
-  `phase-1-tests/expectations.json`, and `phase-1-tests/test_expectations.py`.
-  Run:
-  `./backend/.venv/bin/python phase-1-tests/check_expectations.py`.
+- **Deploy split: Vercel = website only, Railway = FastAPI API.** The Claude
+  check call runs 1–3 min; Vercel serverless is a bad fit for it. The Cleared
+  marketing/onboarding site goes on Vercel; the API stays on Railway.
+- **Multi-user, invite-only** (user + girlfriend + friends). Supabase Auth,
+  allowlist via `CLEARED_ALLOWED_EMAILS` env var.
+- **Chrome Web Store ($5, unlisted)** is acceptable but deferred until closer
+  to public readiness; unpacked install until then.
 
-The web port has started:
+## Immediate next steps (in order)
 
-- **W1 backend seam** — `POST /check-listing` accepts extension-provided
-  `ListingFacts` + image URLs, fetches CDN images server-side, and threads seeded
-  facts through the existing traced Claude call. Optional `X-Cleared-Token`
-  enforcement is controlled by `CLEARED_SHARED_TOKEN`.
-- **W2 extension skeleton** — `extension/` is a plain Manifest V3 Chrome
-  extension. It reads Depop `__NEXT_DATA__` on product pages and logs extracted
-  facts + image URLs; it does not call the backend yet.
-- **W3 branch in progress** — branch `claude/web-wire-extension` wires the
-  extension to local `/check-listing`: injected button, optional buyer context,
-  POST to `http://localhost:8000/check-listing`, and in-page `CheckReport`
-  rendering.
+1. **Point the extension at the Railway backend.** `extension/src/client.js`
+   and `extension/src/auth.js` both hardcode `http://localhost:8000`. Make the
+   backend URL configurable (e.g. `chrome.storage.local` key with the Railway
+   URL as default and localhost override for dev), add
+   `https://cleared-backend-production.up.railway.app/*` to
+   `host_permissions` in `manifest.json`, update the client tests
+   (`extension/tests/client.test.js` asserts the default URL). This was
+   in-progress when the session ended — manifest was read, no edits made yet.
+2. **Build the Cleared website → Vercel.** User's vision: (a) landing page,
+   (b) sign up / create account (calls `POST /auth/signup` on the Railway
+   API — allowlist gates it), (c) demo of how Cleared works, (d) extension
+   download/install instructions, (e) then users go to Depop and use it.
+   Match the care-label aesthetic (`artifacts/design/architecture.html`,
+   `extension/styles.css` design tokens: calico/muslin/indigo/thread palette,
+   Barlow Condensed + IBM Plex fonts).
+3. **Verify the history page** at
+   `https://cleared-backend-production.up.railway.app/history` (sign in, see
+   past checks). Local reports exist under the user's account.
+4. **Brand-gate live check on the web path** — Uniqlo listing (auth flag OFF)
+   and Ralph Lauren (ON) via the extension, per phase-web checklist.
+5. Later: "checked N× — see history" link in the panel; W5 screenshot-fallback
+   page; Chrome Web Store listing + CORS lockdown to the store extension ID.
 
-## Immediate next step
+## Security notes (act on these)
 
-The iOS/backend track is ready to move toward **Phase 3: iOS app + Share
-Extension + voice context**. Before coding Phase 3, the next agent should read:
+- **Rotate the Supabase management token** at
+  supabase.com/dashboard/account/tokens — it briefly entered git history
+  (GitHub push protection blocked the push; the commit was amended, but
+  treat it as burned). It currently sits in plaintext in the local
+  `.mcp.json` (committed with placeholder `REPLACE_WITH_YOUR_TOKEN`; the
+  user pasted the real one back in locally — don't commit that).
+- `backend/.env.local` (gitignored) holds: `ANTHROPIC_API_KEY`,
+  `CLEARED_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+  `CLEARED_ALLOWED_EMAILS`, `SUPABASE_ACCESS_TOKEN`,
+  `CLEARED_EXTENSION_ORIGIN` (unpacked dev ID
+  `ebpjeilllcihcobaimedplbcbijfgcgh`), and a commented-out
+  `CLEARED_SHARED_TOKEN` (legacy; only `/check` uses it now).
+- Railway `cleared-backend` vars: `ANTHROPIC_API_KEY`, `CLEARED_MODEL`,
+  `CLEARED_SHARED_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+  `CLEARED_ALLOWED_EMAILS`. **`CLEARED_EXTENSION_ORIGIN` is deliberately
+  unset** → CORS falls back to `*`. Lock down once the extension ID is stable.
+- Supabase email confirmations are **disabled** (invite-only tool).
 
-1. `CLAUDE.md`
-2. all files in `claude.mds/`
-3. `docs/superpowers/specs/2026-06-21-phase-2-listing-trust-design.md`
-4. `docs/superpowers/plans/2026-06-21-phase-2-listing-trust.md`
+## Gotchas learned this session
 
-For a quick backend confidence check before starting iOS work:
-
-```sh
-cd /Users/kaladanwuke/Developer/cleared
-cd backend && ./.venv/bin/python -m unittest discover -v
-cd ..
-backend/.venv/bin/python phase-1-tests/test_search_trace.py
-backend/.venv/bin/python phase-1-tests/test_expectations.py
-backend/.venv/bin/python phase-1-tests/check_expectations.py
-```
-
-If the next task is another backend eval slice instead of iOS UI, keep it on a
-PR branch and do not touch `extension/` unless explicitly working on the web
-track.
-
-## Open threads (not blocking)
-
-- **Web-port live validation** — still needs a real current Depop product page:
-  confirm `__NEXT_DATA__` field names, confirm CDN image URLs return bytes
-  server-side, then click through the injected extension panel against the local
-  backend.
-- **Live Phase 2 eval** — the prompt/rubric/expectation harness is in place, but
-  no new paid Phase 2 live run has been captured after the prompt change. If the
-  next backend-focused agent has a fresh screenshot and Console credits, capture a
-  new run and review it with the updated rubric.
-- **`subagent-coding` skill** — global skill at `~/.claude/skills/subagent-coding/`
-  (also a private GitHub repo `kaladanw/claude-skills`). It's the playbook for
-  spinning up coding subagents on branches/PRs — read it before doing that again.
-  It has a dated "Lessons log"; append to it when you learn something.
+- The extension content script runs in the page context, so requests carry
+  `Origin: https://www.depop.com` — that origin is in the CORS allowlist in
+  `backend/app/main.py` when `CLEARED_EXTENSION_ORIGIN` is set.
+- `backend/.venv` must be Python 3.13 (`/opt/homebrew/bin/python3.13`);
+  a 3.9 venv fails on `str | None` annotations.
+- Homebrew/node are NOT on the default PATH in Claude Code shells here — use
+  `/opt/homebrew/bin/...` or export PATH first. Railway CLI installed via brew.
+- uvicorn `--reload` does not re-read `.env.local`; restart it after env edits.
+- `GET /reports?url=` only returns the newest report per listing (by design);
+  the history page shows all rows.
 
 ## Git state
 
-- Branch `main`, synced with `origin/main` at `0f247c2` after merging PR #5
-  (`claude/phase-2-listing-trust`).
-- Both feature branches (`eval-system`, `billing-error-handling`) merged via PRs
-  #1/#2 and deleted (local + remote). Web track branches may still exist while
-  that work is active.
+- `main` synced with `origin/main` at `27c3bc8`. Web track fully merged
+  (`cleared-supabase` branch deleted local+remote).
+- The **iOS track is active in parallel** — branch `worktree-phase-3-ios` +
+  worktree `.claude/worktrees/railway-deploy` belong to another agent.
+  Don't touch iOS files or that worktree.
 - Identity: `kaladanw`. Repo: `github.com/kaladanw/Cleared`.
 
-## Env notes
+## Env quick-check before starting
 
-- Python 3.13, venv at `backend/.venv`. Run backend from `backend/`.
-- Key in `backend/.env.local` (gitignored; loaded by `app/main.py`). Never echo it.
-- Local screenshots go in `test_shots/` (gitignored). Test outputs: `phase-1-tests/runs/`.
+```sh
+cd /Users/kaladanwuke/Developer/Cleared
+backend/.venv/bin/python -m pytest backend/tests -q
+backend/.venv/bin/python phase-1-tests/test_search_trace.py
+cd extension && /opt/homebrew/opt/node/bin/node --test tests/*.test.js
+curl -s https://cleared-backend-production.up.railway.app/health
+```
