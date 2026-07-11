@@ -11,9 +11,11 @@ Detailed, phase-scoped guidance lives in `claude.mds/phase-N.md`. The active
 phase is imported below so it auto-loads; read the others directly as needed.
 
 - `claude.mds/phase-0.md` — backend skeleton + ingestion (done; why input = images)
-- `claude.mds/phase-1.md` — the Claude vision → report call (current)
+- `claude.mds/phase-1.md` — the Claude vision → report call (done; engine validated live)
+- `claude.mds/phase-web.md` — browser-extension track (parallel, separate effort)
+- `claude.mds/phase-3.md` — iOS app + Share Extension (current)
 
-@claude.mds/phase-1.md
+@claude.mds/phase-3.md
 
 ## Locked decisions (do not relitigate — each cost real back-and-forth)
 
