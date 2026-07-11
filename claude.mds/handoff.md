@@ -1,141 +1,123 @@
 # Session handoff — live working state (2026-07-11)
 
-> Snapshot for a fresh coding agent (any harness — written to be self-contained)
-> picking up mid-Phase-3. Read the root `CLAUDE.md` first (it auto-imports
-> `claude.mds/phase-3.md`, the active brief); this file is only the *live state*
-> on top of that. Historical snapshots live in `artifacts/handoffs/`.
+> Snapshot for a fresh agent picking up mid-flight. Read the root `CLAUDE.md`
+> first (locked decisions + `CheckReport` contract), then `phase-web.md` for the
+> web track. This file is only the *live state* on top of those.
 
 ## Where we are
 
-**Phase 3 (iOS app + Share Extension) slices S1–S5 are built and tested.**
-The engine (phases 0–2) and the live Railway backend are done and stable.
-S6 voice input remains intentionally deferred.
+The **web track is built, merged to `main`, and live end-to-end**:
 
-Work lives on branch **`worktree-phase-3-ios`** (worktree under
-`.claude/worktrees/phase-3-ios/`). Commits so far:
+- **Extension (Manifest V3, tested in Arc)** — injects a care-label panel on
+  Depop product pages, extracts listing facts from `application/ld+json`
+  (Depop dropped `__NEXT_DATA__` in 2026 — extractor tries ld+json first,
+  falls back to `__NEXT_DATA__`), login form → JWT in `chrome.storage.local`,
+  posts to `/check-listing` with `Authorization: Bearer`, renders the report,
+  drag-to-reposition + `resize: both`.
+- **Supabase (project `wmqykginjawebegifspi`)** — Auth (email/password,
+  invite-only via `CLEARED_ALLOWED_EMAILS`) + `reports` table (RLS on,
+  keyed by `user_id` + `listing_url`). Every check saves a row; revisiting a
+  listing renders the newest cached report with a Re-check button
+  (`GET /reports?url=` returns `limit(1)` by design — all rows are kept).
+- **History page** — `GET /history` serves a self-contained HTML page
+  (login → list of past checks). Deployed but **not yet manually verified**.
+- **Backend deployed on Railway** — project `cleared`, service
+  `cleared-backend`, **live at
+  `https://cleared-backend-production.up.railway.app`** with Supabase env vars
+  set and `/health`, `/history`, `/auth/login` verified against production.
+  Deploy: `cd backend && railway up --detach --service cleared-backend`
+  (Dockerfile build, healthcheck `/health`).
+- **Supabase MCP** wired in `.mcp.json` (token lives in the file locally — see
+  Security notes). Full flow verified live: signup → login → authed
+  `/check-listing` → row in Supabase → cached revisit in the extension.
 
-- `0d0ea47` — Phase 3 brief added, made the active phase in `CLAUDE.md`.
-- `27c2c61` — **S1 scaffold**: XcodeGen project (`ios/project.yml` → generated,
-  gitignored `Cleared.xcodeproj`), host app + `ClearedShare` extension +
-  `ClearedTests`, secrets via gitignored `ios/Secrets.xcconfig` (committed
-  `Secrets.example.xcconfig` template). Verified: builds, launches on the
-  iPhone 17 Pro simulator, live backend host visible in the UI.
-- `d7d9d3e` — **S2 contract + client**: `ios/ClearedKit/CheckReport.swift`
-  mirrors `backend/app/models.py` (snake_case via `.convertFromSnakeCase`);
-  `MultipartBody` + `ClearedAPIClient` (multipart POST `/check`,
-  `X-Cleared-Token`, 240 s timeout). Fixture-decode tests against copies of the
-  phase-1 saved runs in `ios/ClearedTests/Fixtures/`.
-- `1495bbb` — **S3 extension flow**:
-  `ShareIngest` (NSItemProvider → UIImage, max 4), `UIImage+Downscale`
-  (≤1600 px JPEG 0.8), `CheckSession` state machine
-  (ingest → compose → checking → finished/failed), full SwiftUI panel in
-  `ShareViewController.swift` with the staged "honest wait" progress view and
-  an S3-placeholder report view.
-- `f9c89ba` — **S4 care-label UI**: verdict-first stitched label, honest nullable
-  prices, suggested offer, trust groups, tap-to-copy questions, brand-gated
-  authenticity assist, and collapsed listing facts.
-- **S5 validation + persistence**: successful reports save atomically to the
-  shared app-group container and the host app re-displays the latest report.
-  **All 8 unit tests green.**
+Tests all green: 20 backend (`backend/.venv/bin/python -m pytest backend/tests`),
+12 extension (`cd extension && node --test tests/*.test.js`), plus
+`phase-1-tests/test_search_trace.py`.
 
-## Live verification state (S5)
+## Decided (do not relitigate)
 
-- iPhone 17 Pro Simulator builds, tests, installs, and launches. Both saved-run
-  PNGs are loaded into Photos.
-- Live Railway gate-ON: Aelfric Eden → `skip`, `auth_applicable: true`, two
-  red flags, price estimates populated.
-- Live Railway gate-OFF: Kenneth Cole → `negotiate`, `auth_applicable: false`,
-  zero auth flags, price estimates populated.
-- Wrong token → HTTP 401 with `Invalid Cleared token.`; the Swift client maps
-  401 to the explicit token-rejected failure surface.
-- The live Aelfric report was placed in the Simulator app-group container to
-  verify the persistence/readback path. Simulator UI automation opened the
-  host's Recent row and visually confirmed the full care-label rendering.
-- No physical iPhone was connected, so personal-signing/device installation
-  remains untested. Interactive Photos → share sheet selection was not
-  automated in this harness; S3's Swift request path and S5's live payloads
-  were verified separately against the same regression images.
+- **Deploy split: Vercel = website only, Railway = FastAPI API.** The Claude
+  check call runs 1–3 min; Vercel serverless is a bad fit for it. The Cleared
+  marketing/onboarding site goes on Vercel; the API stays on Railway.
+- **Multi-user, invite-only** (user + girlfriend + friends). Supabase Auth,
+  allowlist via `CLEARED_ALLOWED_EMAILS` env var.
+- **Chrome Web Store ($5, unlisted)** is acceptable but deferred until closer
+  to public readiness; unpacked install until then.
 
-## What remains
+## Immediate next steps (in order)
 
-- **Distribution readiness:** `ios/RELEASE.md` is the practical signing,
-  versioning, artwork, metadata, privacy, TestFlight, and App Store checklist.
-  Host and extension versions now share `MARKETING_VERSION` and
-  `CURRENT_PROJECT_VERSION` in `ios/project.yml`.
-- **S6 (later) — voice.** Speech framework dictation → `user_context`.
-- Optional manual smoke test: Photos → select a saved screenshot → Share →
-  Cleared, then compare the panel to the already verified host rendering.
-- Install on a physical iPhone when one is available.
+1. **Point the extension at the Railway backend.** `extension/src/client.js`
+   and `extension/src/auth.js` both hardcode `http://localhost:8000`. Make the
+   backend URL configurable (e.g. `chrome.storage.local` key with the Railway
+   URL as default and localhost override for dev), add
+   `https://cleared-backend-production.up.railway.app/*` to
+   `host_permissions` in `manifest.json`, update the client tests
+   (`extension/tests/client.test.js` asserts the default URL). This was
+   in-progress when the session ended — manifest was read, no edits made yet.
+2. **Build the Cleared website → Vercel.** User's vision: (a) landing page,
+   (b) sign up / create account (calls `POST /auth/signup` on the Railway
+   API — allowlist gates it), (c) demo of how Cleared works, (d) extension
+   download/install instructions, (e) then users go to Depop and use it.
+   Match the care-label aesthetic (`artifacts/design/architecture.html`,
+   `extension/styles.css` design tokens: calico/muslin/indigo/thread palette,
+   Barlow Condensed + IBM Plex fonts).
+3. **Verify the history page** at
+   `https://cleared-backend-production.up.railway.app/history` (sign in, see
+   past checks). Local reports exist under the user's account.
+4. **Brand-gate live check on the web path** — Uniqlo listing (auth flag OFF)
+   and Ralph Lauren (ON) via the extension, per phase-web checklist.
+5. Later: "checked N× — see history" link in the panel; W5 screenshot-fallback
+   page; Chrome Web Store listing + CORS lockdown to the store extension ID.
 
-## Cross-platform / distribution decision (2026-07-11)
+## Security notes (act on these)
 
-- The web product may continue to ingest listing URLs; iOS remains deliberately
-  screenshot-first. Do **not** try to reconstruct a Depop URL from seller
-  details, item names, or pixels: it is ambiguous, fragile, and reintroduces
-  the dependency on Depop's URL surface that iOS intentionally avoids.
-- The eventual web ↔ iOS connection is through a Cleared-owned `check_id` and
-  an authenticated user's report history. Both clients create/read the same
-  owned report; neither needs the other client's source input.
-- Later, a Cleared-domain report URL (for example `/check/<id>`) can be a
-  Universal Link: it opens the installed iOS app or falls back to the Vercel
-  web report. This needs user accounts, report ownership/authorization,
-  backend persistence, and the domain's Associated Domains/AASA setup, so it
-  is explicitly deferred from Phase 3.
-- Distribution work now splits into two isolated branches/tasks: iOS release
-  foundation from `worktree-phase-3-ios`, and Vercel launch + iOS handoff from
-  `cleared-web`. The immediate web scope is a landing page plus privacy,
-  support, and download/TestFlight CTA—not Universal Links yet.
-- Before any public App Store release, replace the app-embedded shared backend
-  token with real access control and usage limits. Keeping it only in an
-  xcconfig keeps it out of git, not out of a distributed app binary.
+- **Rotate the Supabase management token** at
+  supabase.com/dashboard/account/tokens — it briefly entered git history
+  (GitHub push protection blocked the push; the commit was amended, but
+  treat it as burned). It currently sits in plaintext in the local
+  `.mcp.json` (committed with placeholder `REPLACE_WITH_YOUR_TOKEN`; the
+  user pasted the real one back in locally — don't commit that).
+- `backend/.env.local` (gitignored) holds: `ANTHROPIC_API_KEY`,
+  `CLEARED_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+  `CLEARED_ALLOWED_EMAILS`, `SUPABASE_ACCESS_TOKEN`,
+  `CLEARED_EXTENSION_ORIGIN` (unpacked dev ID
+  `ebpjeilllcihcobaimedplbcbijfgcgh`), and a commented-out
+  `CLEARED_SHARED_TOKEN` (legacy; only `/check` uses it now).
+- Railway `cleared-backend` vars: `ANTHROPIC_API_KEY`, `CLEARED_MODEL`,
+  `CLEARED_SHARED_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+  `CLEARED_ALLOWED_EMAILS`. **`CLEARED_EXTENSION_ORIGIN` is deliberately
+  unset** → CORS falls back to `*`. Lock down once the extension ID is stable.
+- Supabase email confirmations are **disabled** (invite-only tool).
 
-## How to build / test / verify
+## Gotchas learned this session
 
-```sh
-cd ios
-/opt/homebrew/bin/xcodegen generate     # after any project.yml change
-xcodebuild -project Cleared.xcodeproj -scheme Cleared \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
-# App: build, then
-xcrun simctl install "iPhone 17 Pro" <DerivedData>/Build/Products/Debug-iphonesimulator/Cleared.app
-xcrun simctl launch "iPhone 17 Pro" com.kaladanw.cleared
-```
-
-One cheap live check (~pennies, ~30–90 s): share a listing screenshot through
-the extension, or curl `/check` with `-F 'images=@shot.png'` and the
-`X-Cleared-Token` from `ios/Secrets.xcconfig`.
-
-## Gotchas already paid for (don't re-learn)
-
-- **Bundle IDs:** extension ID must be a *child* of the app ID
-  (`com.kaladanw.cleared` / `.cleared.share`) — XcodeGen's derived sibling ID
-  fails simulator install with "Mismatched bundle IDs".
-- **xcconfig URLs:** `//` starts a comment; write `https:/$()/host`.
-- **Swift 6 strict concurrency:** `NSExtensionContext`/`NSItemProvider` are not
-  Sendable — `ShareIngest` is `@MainActor` for that reason.
-- **Test resources:** fixture copies are colon-free renames; the originals'
-  `12:58am` filenames upset resource copying.
-- **Railway:** variables set with `--skip-deploys` don't reach the running
-  container until a redeploy — that's how the dead-key incident happened.
-- **This repo is PUBLIC.** `ios/Secrets.xcconfig` is gitignored and must stay
-  that way; committed plists carry `$(VAR)` placeholders only. Verify with
-  `git grep cleared-backend-production -- ios/` before pushing (expect no hits).
-
-## Backend / infra facts
-
-- Live URL: `https://cleared-backend-production.up.railway.app` (`/health` open;
-  `/check` + `/check-listing` need `X-Cleared-Token`).
-- Railway project `cleared` (`de910467-5a0a-4bb6-a806-8241975015ed`), service
-  `cleared-backend`, env `production`. CLI: `~/.railway/bin/railway`.
-- Secrets: token + URL in `ios/Secrets.xcconfig` (local only) and Railway
-  variables. `ANTHROPIC_API_KEY` lives ONLY in Railway. Never echo secrets into
-  a chat transcript or commit them — one key already had to be rotated.
+- The extension content script runs in the page context, so requests carry
+  `Origin: https://www.depop.com` — that origin is in the CORS allowlist in
+  `backend/app/main.py` when `CLEARED_EXTENSION_ORIGIN` is set.
+- `backend/.venv` must be Python 3.13 (`/opt/homebrew/bin/python3.13`);
+  a 3.9 venv fails on `str | None` annotations.
+- Homebrew/node are NOT on the default PATH in Claude Code shells here — use
+  `/opt/homebrew/bin/...` or export PATH first. Railway CLI installed via brew.
+- uvicorn `--reload` does not re-read `.env.local`; restart it after env edits.
+- `GET /reports?url=` only returns the newest report per listing (by design);
+  the history page shows all rows.
 
 ## Git state
 
-- Phase 3 branch: `worktree-phase-3-ios`; commits are pushed but do **not**
-  merge to `main` until the physical-device smoke test passes. Identity:
-  `kaladanw`; repo
-  `github.com/kaladanw/Cleared` (public).
-- The web-extension track (`extension/`, `cleared-web` branch) is separate —
-  don't touch it from iOS work.
+- `main` synced with `origin/main` at `27c3bc8`. Web track fully merged
+  (`cleared-supabase` branch deleted local+remote).
+- The **iOS track is active in parallel** — branch `worktree-phase-3-ios` +
+  worktree `.claude/worktrees/railway-deploy` belong to another agent.
+  Don't touch iOS files or that worktree.
+- Identity: `kaladanw`. Repo: `github.com/kaladanw/Cleared`.
+
+## Env quick-check before starting
+
+```sh
+cd /Users/kaladanwuke/Developer/Cleared
+backend/.venv/bin/python -m pytest backend/tests -q
+backend/.venv/bin/python phase-1-tests/test_search_trace.py
+cd extension && /opt/homebrew/opt/node/bin/node --test tests/*.test.js
+curl -s https://cleared-backend-production.up.railway.app/health
+```
