@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Cleared gives resale buyers a careful second opinion on price, listing trust, and what to inspect." />
-    <title>Cleared — A second opinion before you buy</title>
+    <meta name="description" content="Join Cleared by invite, then load the Chrome extension for a careful second opinion on Depop listings." />
+    <title>Cleared — Join by invite</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,31 +18,68 @@
         <a href="#how-it-works">How it works</a><a href="/privacy">Privacy</a><a href="/support">Support</a>
       </nav>
     </header>
+
     <main>
-      <section class="hero shell">
-        <div class="hero-copy">
-          <h1>A second opinion before you buy.</h1>
-          <p class="lede">Share listing screenshots from your iPhone. Cleared checks price context, listing trust, and brand-specific things to inspect—so you can decide with more confidence.</p>
-          <a class="button" href="#download">Get Cleared for iPhone</a>
-          <p class="availability">TestFlight link coming soon. TestFlight is a pre-release platform; features and availability may change.</p>
+      <section class="onboarding shell" aria-labelledby="onboarding-title">
+        <div class="onboarding-copy">
+          <h1 id="onboarding-title">Your invite is the first <em>stitch.</em></h1>
+          <div class="seam" aria-hidden="true"></div>
+          <p id="onboarding-intro">Create your account with the email your invite was sent to.</p>
+          <div class="account-summary" data-account-summary hidden>
+            <p>Signed in as <strong data-account-email></strong></p>
+            <button class="text-button" type="button" data-sign-out>Sign out</button>
+          </div>
         </div>
-        <div class="product-story" aria-label="A listing screenshot becomes a Cleared second-opinion report">
-          <article class="phone listing-phone"><div class="phone-bar">9:41</div><div class="listing-photo"><span>Listing screenshot</span></div><div class="listing-copy"><strong>Vintage shoulder bag</strong><span>$245 · Good condition</span></div><div class="share-sheet"><span>Share</span><div class="share-icon">C</div><small>Cleared</small></div></article>
-          <span class="story-arrow" aria-hidden="true">→</span>
-          <article class="care-label"><span class="mini-mark">Cleared</span><strong>Reviewing</strong><ul><li>Price context</li><li>Listing trust</li><li>What to inspect</li></ul></article>
-          <span class="story-arrow" aria-hidden="true">→</span>
-          <article class="phone report-phone"><div class="phone-bar">9:41</div><div class="report"><span class="mini-mark">Cleared</span><h2>Worth a closer look</h2><p>The price is within the expected used range.</p><h3>Listing trust</h3><p>Photos are consistent, but ask for a close-up of the interior label.</p><h3>What to inspect</h3><ul><li>Corner wear</li><li>Logo spacing</li><li>Interior tag</li></ul><small>Guidance, not a guarantee.</small></div></article>
-        </div>
+
+        <section class="auth-label" data-auth-view aria-label="Cleared account access">
+          <div class="auth-tabs" role="tablist" aria-label="Account action">
+            <button id="signup-tab" type="button" role="tab" aria-selected="true" aria-controls="auth-form" data-auth-mode="signup">Create account</button>
+            <button id="login-tab" type="button" role="tab" aria-selected="false" aria-controls="auth-form" data-auth-mode="login">Sign in</button>
+          </div>
+          <form id="auth-form" class="auth-form" novalidate>
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <span class="password-control">
+                <input name="password" type="password" autocomplete="new-password" required />
+                <button type="button" class="reveal-button" data-reveal-password aria-label="Show password">Show</button>
+              </span>
+            </label>
+            <p class="form-message" data-form-message role="status" aria-live="polite"></p>
+            <button class="button auth-submit" type="submit" data-auth-submit>Create account</button>
+          </form>
+          <p class="invite-note"><span aria-hidden="true">✳</span> Invite-only. Not on the list? Ask the person who invited you.</p>
+        </section>
+
+        <section class="install-label" data-install-view aria-labelledby="install-title" hidden>
+          <h2 id="install-title">Load Cleared in Chrome</h2>
+          <ol class="install-steps">
+            <li><div><strong>Get the extension folder</strong><p>Use the <code>extension</code> folder shared with your invite.</p></div></li>
+            <li><div><strong>Open Chrome extensions</strong><p><code>chrome://extensions</code></p></div></li>
+            <li><div><strong>Turn on Developer mode</strong><p>Use the switch in the top-right corner.</p></div></li>
+            <li><div><strong>Choose Load unpacked</strong><p>Select the <code>extension</code> folder.</p></div></li>
+          </ol>
+          <div class="install-finish">
+            <p>Then open a Depop listing. Cleared appears on the page; sign in once more inside the extension.</p>
+            <button class="button copy-button" type="button" data-copy-address>Copy Chrome address</button>
+            <p class="copy-status" data-copy-status role="status" aria-live="polite"></p>
+          </div>
+        </section>
       </section>
+
       <section id="how-it-works" class="features shell" aria-labelledby="features-title">
         <h2 id="features-title" class="sr-only">How Cleared helps</h2>
-        <article><span class="feature-number">01</span><h3>Price context</h3><p>See how the asking price compares with retail context and a light read on the used market.</p></article>
-        <article><span class="feature-number">02</span><h3>Listing trust</h3><p>Review photo quality, details, and consistency to find gaps worth asking about.</p></article>
-        <article><span class="feature-number">03</span><h3>What to inspect</h3><p>Get brand-specific pointers for details to confirm before you make an offer.</p></article>
+        <article><span class="feature-number">01</span><h3>Browse Depop</h3><p>Open a product page after loading Cleared as an unpacked Chrome extension.</p></article>
+        <article><span class="feature-number">02</span><h3>Check the listing</h3><p>Cleared reads the listing details and photos you already have open in your browser.</p></article>
+        <article><span class="feature-number">03</span><h3>Get a second opinion</h3><p>Review price context, listing trust, and brand-specific details worth inspecting.</p></article>
       </section>
+
       <section class="boundaries shell"><h2>Clear boundaries</h2><p>Cleared provides judgment-assist guidance, not an authenticity guarantee. It does not buy items or message sellers. The final decision is always yours.</p></section>
-      <section id="download" class="closing"><div class="shell closing-inner"><div><h2>Get a careful second opinion.</h2><p>Right from your iPhone.</p></div><div><span class="button button-light" aria-disabled="true">TestFlight coming soon</span><p class="availability">A public download link will appear here when the beta is ready.</p></div></div></section>
     </main>
+
     <footer class="site-footer shell"><a class="wordmark wordmark-small" href="/">C</a><p>© <span data-year></span> Cleared</p><nav aria-label="Footer navigation"><a href="/privacy">Privacy</a><a href="/support">Support</a></nav></footer>
     <script type="module" src="/src/main.js"></script>
   </body>
