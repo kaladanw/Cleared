@@ -65,6 +65,13 @@ curl -s -X POST localhost:8000/check \
   | python3 -m json.tool
 ```
 
+## Human-only TODOs
+
+`flags/` is gitignored — use it for TODOs that are strictly human actions
+(dashboard clicks, DNS, account setup, choosing a domain, anything no agent can
+do). One file per initiative (e.g. `flags/web-launch.md`). Don't put engineering
+work there, and don't try to complete items in it yourself.
+
 ## Working principles (from the Preflight session)
 
 Reality over assumption (verify external facts live — that's how the 403 wall was
