@@ -2,7 +2,8 @@
 
 > Canonical snapshot for this repository, updated 2026-07-12. This is a
 > local documentation artifact, not a launch announcement. For the visual
-> companion, open [`current-state.html`](current-state.html) locally.
+> companion, open [`current-state.html`](current-state.html) locally. For the
+> function-and-contract reading guide, open [`code-map.html`](code-map.html).
 
 ## Status legend
 
