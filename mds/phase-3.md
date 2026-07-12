@@ -115,7 +115,7 @@ truth — JSON is snake_case; decode with `.convertFromSnakeCase` or CodingKeys)
   render correct, gated, honest panels.*
 - **S5 — E2E validation + handoff.** Fresh listing screenshot, both gate
   directions live (fakeable brand ON, non-fakeable OFF), wrong-token → honest
-  401 surface, update `claude.mds/handoff.md`. Real-device install is part of
+  401 surface, update `mds/handoff.md`. Real-device install is part of
   this slice if a device is available (free Apple ID personal signing is
   enough; no paid account needed).
 - **S6 (later) — Voice.** Speech framework dictation → `user_context`.

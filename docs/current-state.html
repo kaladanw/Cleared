@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Cleared — current state</title>
+  <style>
+    :root {
+      --paper: #f4efe4;
+      --paper-deep: #e8deca;
+      --ink: #19243a;
+      --muted: #5f6771;
+      --indigo: #263b71;
+      --thread: #bd4b3b;
+      --mustard: #c9942d;
+      --sage: #55735e;
+      --line: #b7ad9c;
+      --white: #fffdf8;
+      --shadow: 0 9px 26px rgba(35, 42, 54, .11);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; color: var(--ink); background:
+        repeating-linear-gradient(0deg, rgba(38,59,113,.025) 0 1px, transparent 1px 5px),
+        var(--paper);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      line-height: 1.48;
+    }
+    .page { max-width: 1180px; margin: 0 auto; padding: 26px 24px 70px; }
+    .masthead {
+      position: relative; overflow: hidden; padding: 34px 36px 30px; color: var(--white);
+      background: var(--indigo); border: 2px solid var(--ink); box-shadow: var(--shadow);
+    }
+    .masthead::after { content: ""; position: absolute; inset: 13px; border: 1px dashed rgba(255,255,255,.52); pointer-events: none; }
+    .eyebrow, .tiny { margin: 0; letter-spacing: .13em; text-transform: uppercase; font-size: .72rem; font-weight: 800; }
+    h1 { margin: 7px 0 8px; font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; text-transform: uppercase; letter-spacing: .045em; font-size: clamp(2.5rem, 7vw, 5.7rem); line-height: .9; }
+    .lede { max-width: 720px; margin: 0; color: #e8e2d6; font-size: 1.02rem; }
+    .local { position: absolute; z-index: 1; right: 34px; top: 30px; max-width: 212px; padding: 9px 11px; border: 1px solid #f3e0b5; color: #f8e8be; font-size: .72rem; text-align: right; }
+    .strip { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); border: 2px solid var(--ink); border-top: 0; background: var(--white); }
+    .strip > div { padding: 13px 15px; border-right: 1px solid var(--line); font-size: .77rem; }
+    .strip > div:last-child { border-right: 0; }
+    .strip strong { display: block; color: var(--indigo); text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; }
+    section { margin-top: 42px; }
+    h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 15px; font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; font-size: 2rem; letter-spacing: .035em; text-transform: uppercase; }
+    h2::after { content: ""; height: 2px; flex: 1; background: var(--ink); opacity: .45; }
+    h3 { margin: 0 0 7px; font-size: .88rem; text-transform: uppercase; letter-spacing: .07em; }
+    p { margin: 0 0 14px; }
+    .note { padding: 13px 15px; border-left: 5px solid var(--thread); background: #f9e6dd; font-size: .88rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+    .chip, .filter {
+      display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor;
+      padding: 5px 8px; font-size: .69rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    }
+    .code { color: var(--indigo); background: #dce5fa; }
+    .validated { color: #315d3e; background: #e0ede1; }
+    .deferred { color: #7a5718; background: #f6e8c8; }
+    .user { color: #963c31; background: #f7ded8; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .filter { color: var(--ink); background: var(--white); cursor: pointer; font-family: inherit; }
+    .filter[aria-pressed="true"], .filter:hover { color: var(--white); background: var(--indigo); }
+    .filter:focus-visible { outline: 3px solid var(--mustard); outline-offset: 2px; }
+    .architecture { display: grid; grid-template-columns: 1fr 88px 1fr 88px 1.1fr; align-items: stretch; gap: 0; }
+    .node { position: relative; min-height: 194px; padding: 17px; border: 2px solid var(--ink); background: var(--white); box-shadow: 5px 5px 0 rgba(38,59,113,.15); }
+    .node.ios { border-top: 8px solid var(--thread); }
+    .node.web { border-top: 8px solid var(--mustard); }
+    .node.engine { border-top: 8px solid var(--indigo); background: #eef2fb; }
+    .node ul { padding-left: 18px; margin: 9px 0 0; font-size: .8rem; }
+    .arrow { position: relative; min-height: 55px; }
+    .arrow::before { content: ""; position: absolute; left: 10px; right: 10px; top: 50%; border-top: 2px solid var(--ink); }
+    .arrow::after { content: "➜"; position: absolute; top: calc(50% - 14px); right: 1px; color: var(--thread); font-size: 1.5rem; }
+    .arrow span { position: absolute; top: calc(50% - 33px); left: 0; right: 0; color: var(--muted); text-align: center; font-size: .63rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .outputs { margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .output { padding: 12px; border: 1px solid var(--line); background: var(--white); font-size: .78rem; }
+    .output b { color: var(--indigo); }
+    .phase-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .phase { padding: 15px; min-height: 215px; border: 1px solid var(--line); border-top: 6px solid var(--indigo); background: var(--white); box-shadow: 3px 3px 0 rgba(38,59,113,.1); }
+    .phase.web-track { border-top-color: var(--mustard); background: #fff9ed; }
+    .phase .num { color: var(--thread); font-size: .72rem; font-weight: 900; letter-spacing: .09em; }
+    .phase p { font-size: .79rem; }
+    .phase[hidden], .gate[hidden] { display: none; }
+    .service-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); }
+    .service { min-height: 154px; padding: 15px; border-right: 1px solid var(--line); background: var(--white); }
+    .service:last-child { border-right: 0; }
+    .service p { font-size: .78rem; }
+    .service .tiny { color: var(--muted); margin-bottom: 8px; }
+    .gates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .gate { padding: 16px; border: 2px solid var(--ink); background: var(--white); }
+    .gate.user-gate { border-top: 7px solid var(--thread); }
+    .gate.device { border-top: 7px solid var(--mustard); }
+    .gate.engineering { border-top: 7px solid var(--sage); }
+    .gate p { font-size: .81rem; }
+    footer { margin-top: 42px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--muted); font-size: .74rem; }
+    @media (max-width: 850px) {
+      .architecture { grid-template-columns: 1fr; gap: 10px; }
+      .arrow { min-height: 52px; transform: rotate(90deg); }
+      .outputs, .phase-grid, .service-grid, .gates { grid-template-columns: 1fr 1fr; }
+      .service:nth-child(2) { border-right: 0; } .service:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+    @media (max-width: 560px) {
+      .page { padding: 12px 12px 50px; } .masthead { padding: 25px 20px; } .local { position: static; display: inline-block; margin-top: 12px; text-align: left; }
+      .strip, .outputs, .phase-grid, .service-grid, .gates { grid-template-columns: 1fr; }
+      .strip > div, .service { border-right: 0; border-bottom: 1px solid var(--line); } .strip > div:last-child, .service:last-child { border-bottom: 0; }
+      .service:nth-child(2) { border-right: 0; } .service:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <p class="eyebrow">Cleared / care-label documentation</p>
+      <h1>Current state</h1>
+      <p class="lede">One honest report contract. Two deliberately different ways in. A local, evidence-marked snapshot of what is built, what is proven, and what still needs a human.</p>
+      <p class="local">LOCAL DOCUMENTATION ARTIFACT<br>not a public product surface</p>
+    </header>
+    <div class="strip" aria-label="snapshot metadata">
+      <div><strong>Snapshot</strong>2026-07-12</div>
+      <div><strong>Contract</strong>CheckReport</div>
+      <div><strong>Primary engine</strong>FastAPI + Claude</div>
+      <div><strong>Working rule</strong>evidence, not launch claims</div>
+    </div>
+
+    <section>
+      <h2>Status key</h2>
+      <p>Use the filters to isolate the kind of claim being made. “Validated” is not shorthand for distributed or publicly launched.</p>
+      <div class="legend" aria-label="status legend">
+        <span class="chip code">Shipped in code</span>
+        <span class="chip validated">Validated</span>
+        <span class="chip deferred">Deferred</span>
+        <span class="chip user">User-only validation</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Two front doors, one report</h2>
+      <div class="architecture">
+        <article class="node ios">
+          <p class="tiny">iOS / screenshot-first</p>
+          <h3>Share Extension</h3>
+          <ul>
+            <li>Buyer shares listing screenshots</li>
+            <li>Multipart <b>/check</b></li>
+            <li>Development shared-token gate</li>
+            <li>Latest report in app-group storage</li>
+          </ul>
+        </article>
+        <div class="arrow" aria-hidden="true"><span>image bytes</span></div>
+        <article class="node web">
+          <p class="tiny">Web / extension-first</p>
+          <h3>Browser Extension</h3>
+          <ul>
+            <li>Reads facts on the Depop page</li>
+            <li>JSON <b>/check-listing</b></li>
+            <li>JWT bearer authentication</li>
+            <li>CDN photos + web report persistence</li>
+          </ul>
+        </article>
+        <div class="arrow" aria-hidden="true"><span>facts + URLs</span></div>
+        <article class="node engine">
+          <p class="tiny">shared backend / single contract</p>
+          <h3>Claude check engine</h3>
+          <ul>
+            <li>FastAPI fetches supplied CDN images on web</li>
+            <li>Claude vision + <b>web_search</b></li>
+            <li>Calibrated price + trust + brand gate</li>
+            <li><b>CheckReport</b> JSON, then care labels</li>
+          </ul>
+        </article>
+      </div>
+      <div class="outputs">
+        <div class="output"><b>iOS output</b><br>Care-label Share Extension panel and a locally persisted latest report.</div>
+        <div class="output"><b>Web output</b><br>Care-label panel in the Depop page; authenticated cached/history behavior belongs only to the web path today.</div>
+      </div>
+      <p class="note" style="margin-top:15px"><b>Load-bearing separation:</b> iOS stays screenshot-first because the share-link/server-fetch path was unreliable. The browser extension can read page data in the buyer’s session; it does not make the iOS path URL-based.</p>
+    </section>
+
+    <section>
+      <h2>Why each phase mattered</h2>
+      <div class="controls" aria-label="phase status filters">
+        <button class="filter" type="button" data-filter="all" aria-pressed="true">Show all</button>
+        <button class="filter" type="button" data-filter="code" aria-pressed="false">Code</button>
+        <button class="filter" type="button" data-filter="validated" aria-pressed="false">Validated</button>
+        <button class="filter" type="button" data-filter="deferred" aria-pressed="false">Deferred</button>
+      </div>
+      <div class="phase-grid" id="phases">
+        <article class="phase" data-status="code validated"><p class="num">PHASE 0</p><h3>Ingestion truth</h3><p>Proved server-side Depop pages were blocked and made screenshots the dependable iOS input.</p><span class="chip code">decision shipped</span></article>
+        <article class="phase" data-status="code validated"><p class="num">PHASE 1–2</p><h3>Report engine</h3><p>One structured vision + search call, plus trust quality and expectation checks, created the shared report spine.</p><span class="chip validated">recorded live runs</span></article>
+        <article class="phase web-track" data-status="code validated"><p class="num">PARALLEL WEB</p><h3>Browser door</h3><p>Moved fact extraction into the buyer’s browser and only fetched supplied CDN photos server-side.</p><span class="chip code">extension + site</span></article>
+        <article class="phase" data-status="code validated"><p class="num">PHASE 3 / S1–S5</p><h3>iOS package</h3><p>Built the host, Share Extension, care label, request flow, and app-group latest-report persistence.</p><span class="chip validated">simulator + reports</span></article>
+        <article class="phase" data-status="deferred"><p class="num">NEXT, NOT NOW</p><h3>Release layer</h3><p>Voice, Universal Links/check IDs, public stores, and a distributed iOS auth model stay outside the completed slices.</p><span class="chip deferred">deliberately deferred</span></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Services: facts, not assumptions</h2>
+      <div class="service-grid">
+        <article class="service"><p class="tiny">Railway</p><h3>Observed</h3><p><b>/health</b> and <b>/history</b> returned HTTP 200 during the 2026-07-11 audit.</p><span class="chip validated">dated observation</span></article>
+        <article class="service"><p class="tiny">Supabase</p><h3>Web-only persistence</h3><p>Code and recorded handoffs cover JWT auth and per-user web reports. That does not make iOS history shared.</p><span class="chip code">configured path</span></article>
+        <article class="service"><p class="tiny">Vercel</p><h3>Source exists</h3><p>Vite source/config exists and built in the main-checkout audit. No deployed domain or launch is evidenced.</p><span class="chip deferred">no launch claim</span></article>
+        <article class="service"><p class="tiny">Apple distribution</p><h3>Runbook exists</h3><p>Simulator validation and a release checklist exist. TestFlight/App Store readiness has separate security and device gates.</p><span class="chip user">human gate</span></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Next gates</h2>
+      <div class="controls" aria-label="validation-gate filters">
+        <button class="filter" type="button" data-gate-filter="all" aria-pressed="true">All gates</button>
+        <button class="filter" type="button" data-gate-filter="user" aria-pressed="false">User</button>
+        <button class="filter" type="button" data-gate-filter="device" aria-pressed="false">Device</button>
+        <button class="filter" type="button" data-gate-filter="engineering" aria-pressed="false">Engineering</button>
+      </div>
+      <div class="gates" id="gates">
+        <article class="gate user-gate" data-gate="user"><p class="tiny">User / browser</p><h3>Current Depop flow</h3><p>Use the unpacked extension on a real current listing: extraction, sign-in, check, cached revisit/history, and brand gate.</p></article>
+        <article class="gate user-gate" data-gate="user"><p class="tiny">User / domain</p><h3>Launch choices</h3><p>Only if desired: configure Vercel/domain/DNS, final support and privacy pages, then lock CORS to chosen hosts.</p></article>
+        <article class="gate device" data-gate="device"><p class="tiny">Device / Apple</p><h3>Physical Share Sheet</h3><p>Production-sign on a real iPhone and run Photos → Share → Cleared before TestFlight or App Store work.</p></article>
+        <article class="gate engineering" data-gate="engineering"><p class="tiny">Engineering / security</p><h3>Distribution auth</h3><p>Replace the embedded development token with real authorization and per-user/device rate and spend limits.</p></article>
+        <article class="gate engineering" data-gate="engineering"><p class="tiny">Engineering / later</p><h3>Cross-surface model</h3><p>Design check IDs, ownership, and Universal Links only when authenticated report sharing is truly in scope.</p></article>
+        <article class="gate device" data-gate="device"><p class="tiny">Device / release</p><h3>Release runbook</h3><p>Complete artwork, privacy declarations, metadata, archive validation, TestFlight, and App Store review steps.</p></article>
+      </div>
+    </section>
+
+    <footer>
+      Evidence markers: main code/history; 2026-07-11 main-checkout test audit (backend 25 pytest + search trace, extension 16/16, web 9 + Vite build); recorded iOS simulator/live-report validation; dated Railway HTTP observation. See <code>docs/current-state.md</code> for the full evidence and caveats.
+    </footer>
+  </main>
+  <script>
+    function wireFilters(buttonSelector, itemSelector, valueAttribute) {
+      document.querySelectorAll(buttonSelector).forEach((button) => {
+        button.addEventListener("click", () => {
+          const value = button.dataset.filter || button.dataset.gateFilter;
+          document.querySelectorAll(buttonSelector).forEach((other) => other.setAttribute("aria-pressed", String(other === button)));
+          document.querySelectorAll(itemSelector).forEach((item) => {
+            const values = item.dataset[valueAttribute].split(" ");
+            item.hidden = value !== "all" && !values.includes(value);
+          });
+        });
+      });
+    }
+    wireFilters("[data-filter]", "#phases [data-status]", "status");
+    wireFilters("[data-gate-filter]", "#gates [data-gate]", "gate");
+  </script>
+</body>
+</html>

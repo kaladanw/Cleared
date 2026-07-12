@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The host app is deliberately a shell (see claude.mds/phase-3.md): it explains
+/// The host app is deliberately a shell (see mds/phase-3.md): it explains
 /// the share-sheet flow and shows config state. All real interaction happens in
 /// the ClearedShare extension.
 @main

@@ -1,41 +1,59 @@
-# Cleared — a Depop buyer's preflight check
+# Cleared
 
-A two-tap second opinion before you offer on a Depop listing: is the price fair,
-is the listing trustworthy, and (for fakeable brands) what should you inspect?
+Cleared is a buyer-side second opinion for Depop listings. It returns one
+calibrated `CheckReport`: listing facts, retail-anchored price read, listing
+trust questions, brand-gated authenticity red flags, and a buy / negotiate /
+skip recommendation. It is judgment-assist, never an authenticity verdict.
 
-Buyer-side, iOS, personal tool. See `artifacts/design/architecture.html` (open in a browser) for
-the design and the locked decisions; the full plan lives in the Preflight
-session's plan file.
+## Current product map
 
-## Status
+One FastAPI backend and Claude check engine serve two intentionally different
+front doors:
 
-- **Phase 0 (in progress)** — backend skeleton + Depop listing extraction.
-- Phase 1 — the Claude price read. Phase 2 — listing trust. Phase 3 — iOS app.
+- **iOS Share Extension** — a buyer shares one or more listing screenshots.
+  The app uploads multipart images to `POST /check` with its development shared
+  token, then renders the report as a care label. This path is built and
+  simulator-validated; it is not yet distribution-ready.
+- **Browser extension** — on a Depop product page, the extension reads listing
+  facts in the browser and supplies CDN image URLs to JWT-protected
+  `POST /check-listing`. The backend fetches those images, runs the same engine,
+  and saves web reports for the signed-in user when persistence is configured.
 
-## Backend (Phase 0)
+`backend/app/models.py` defines `CheckReport`, the shared contract that both
+surfaces render. The backend keeps the AI key server-side.
+
+## Start here
+
+- [Current-state snapshot](docs/current-state.md) — the evidence-backed status,
+  service facts, and next validation gates.
+- [Local visual snapshot](docs/current-state.html) — a self-contained diagram
+  and phase view; open it locally in a browser. It is not a public product page.
+- [Agent guidance](AGENTS.md) — project constraints and current implementation
+  references.
+- [iOS release runbook](ios/RELEASE.md) — the remaining device, security, and
+  App Store gates.
+- [Web onboarding notes](web/README.md) and [extension setup](extension/README.md).
+
+## Local backend
 
 ```sh
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+/opt/homebrew/bin/python3.13 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Boot the API
+cp .env.example .env  # add ANTHROPIC_API_KEY locally
 uvicorn app.main:app --reload --port 8000
-
-# In another shell — verify extraction against a REAL listing you're looking at:
-curl -s -X POST localhost:8000/check \
-  -H 'content-type: application/json' \
-  -d '{"url":"https://www.depop.com/products/<...>/"}' | python3 -m json.tool
-
-# Or run the extractor directly (more verbose):
-python scripts/try_extract.py "https://www.depop.com/products/<...>/"
 ```
 
-Phase 0 is "done" when a real listing returns its photos + price + title.
-The Depop page shape is the one fragile unknown — if extraction comes back
-empty, paste a listing URL and we'll adjust `app/depop.py` to match the live JSON.
+The screenshot endpoint accepts multipart images:
 
-## IOS Backend (Phase 3 W1)
+```sh
+curl -s -X POST localhost:8000/check \
+  -F 'images=@shot1.png' \
+  -F 'images=@shot2.png' \
+  -F 'user_context=it is a gift; I care more that it is legit than the price'
+```
 
-Cloud hosted ios backend using Railway. Added token gate in /check in @main.py to block possible
-token rerouting by hackers. When cleaning up the project, I should combine the separate /check-listing and /check into one function.
+Do not treat configured Vercel files as evidence of a deployed site, or the
+iOS simulator build as evidence of TestFlight/App Store readiness. The current
+snapshot records those distinctions explicitly.

@@ -75,7 +75,7 @@ Cleared/
   extension/      # NEW — Manifest V3 browser extension (the web front door)
   web/            # OPTIONAL later — paste-a-screenshot fallback page
   docs/ios-to-web/  # NEW — the publishable "how we ported iOS→web" methodology
-  claude.mds/     # phase briefs (this file lives here)
+  mds/            # phase briefs (this file lives here)
 ```
 
 **Why monorepo:** single-user personal tool; one git history tells the whole

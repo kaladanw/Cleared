@@ -4,7 +4,7 @@ POST /check  (multipart: images[] + optional user_context) -> CheckReport
 POST /check-listing  (JSON: facts + image_urls + user_context + listing_url) -> CheckReport
 
 The input is listing SCREENSHOT(S) or fetched CDN images — Depop flat-edge-blocks
-every server-side page fetch (see claude.mds/phase-0.md). Vision reads the images.
+every server-side page fetch (see mds/phase-0.md). Vision reads the images.
 """
 
 from __future__ import annotations

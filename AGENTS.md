@@ -1,82 +1,64 @@
 # Cleared — coding-agent guide
 
-A buyer-side iOS assistant: a two-tap second opinion before you offer on a Depop
-listing. Personal, single-user tool. Born from a Preflight session that
-pressure-tested the idea against reality; the design artifact is
-`artifacts/design/architecture.html` (open in a browser).
+Cleared is a buyer-side second opinion for Depop listings. It is a personal,
+invite-oriented tool with two deliberately separate client paths feeding one
+backend and one `CheckReport` contract. Read [docs/current-state.md](docs/current-state.md)
+before making status or infrastructure claims.
 
-## Per-phase briefs (read the one you're working on)
+## Read order
 
-Detailed, phase-scoped guidance lives in `claude.mds/phase-N.md`. The active
-phase is imported below so it auto-loads; read the others directly as needed.
+1. `README.md` and `docs/current-state.md` for the current, canonical snapshot.
+2. `mds/NOTION_HANDOFF.md` for the human-operated handoff workflow. Do not call
+   or write Notion; emit a compact handoff packet only when appropriate.
+3. The relevant historical implementation brief in `mds/`.
+4. `ios/RELEASE.md`, `web/README.md`, or `extension/README.md` when working on
+   that surface.
 
-- `claude.mds/phase-0.md` — backend skeleton + ingestion (done; why input = images)
-- `claude.mds/phase-1.md` — the Claude vision → report call (done; engine validated live)
-- `claude.mds/phase-web.md` — browser-extension track (parallel, separate effort)
-- `claude.mds/phase-3.md` — iOS app + Share Extension (current)
+`mds/` holds phase briefs and historical handoffs. It is useful context, not
+the canonical live-status source.
 
-@claude.mds/phase-3.md
+## Architecture that must stay true
 
-## Locked decisions (do not relitigate — each cost real back-and-forth)
+- `backend/app/models.py` owns `CheckReport`: `listingFacts`, `priceRead`,
+  `listingTrust`, brand-gated `authFlag`, and `verdict`.
+- **iOS:** screenshot(s) -> multipart `POST /check` -> report. The Share
+  Extension uses a development shared token from an ignored xcconfig; it is not
+  suitable for distributed builds.
+- **Web:** extension-extracted listing facts + CDN image URLs -> JWT
+  `POST /check-listing` -> report. Web checks can persist per-user reports when
+  Supabase is configured.
+- Both paths converge on the same Claude vision + `web_search` engine. The API
+  key never ships in either client.
+- Authenticity output is judgment-assist red flags only, never a verdict.
+  Retail/used prices must remain honestly nullable when evidence is insufficient.
 
-- **Buyer-side, single-user, personal.** Not seller automation, not multi-user.
-- **iOS, on-demand "summon" model.** No always-on overlay — the iOS sandbox
-  forbids reading another app's screen. Interaction = a Share Extension that pops
-  a result panel, plus a mic for voice context.
-- **Input = screenshot(s), NOT a URL.** Depop flat-edge-blocks (403) every
-  server-side fetch, and the app share link is an unusable Branch deep-link. See
-  `claude.mds/phase-0.md`. Vision reads the screenshots.
-- **Authenticity = judgment-assist red flags, never a verdict.** Brand-conditional
-  (fires only for fakeable brands; silent for Uniqlo/jorts/etc.). A confident
-  false "authentic" is worse than no tool.
-- **Pricing = retail-anchored + light used read via `web_search`.** For $5–40 mass
-  brands the real question is "is this even a discount vs new?" No gated comp APIs.
-- **Intelligence = thin backend proxy + Claude.** The API key never ships in the app.
-- **Model = `claude-opus-4-8`** (vision, adaptive thinking). `claude-sonnet-4-6`
-  is the cost lever (`CLEARED_MODEL` env). At personal volume, pennies/check.
+## Working constraints
 
-## The report contract
+- Do not reintroduce server-side Depop product-page fetching: it was empirically
+  blocked. The iOS input is images; the browser extension reads page data in the
+  buyer's browser and the backend fetches only supplied CDN images.
+- Keep secrets out of tracked files, logs, documents, and chat. In particular,
+  do not expose development shared tokens, service keys, or API keys.
+- `flags/` is gitignored for strictly human actions (account setup, DNS, domain
+  choices). Do not place engineering tasks there or attempt human-only actions.
+- Treat phase briefs and handoffs as historical records when they conflict with
+  `docs/current-state.md`; correct current claims in canonical docs rather than
+  rewriting history.
 
-One object, `CheckReport` in `backend/app/models.py`, returned by the backend and
-rendered by the app as the "care label" panel. It is the spine of the build —
-every phase serves filling it in honestly. Sections: `listingFacts`, `priceRead`,
-`listingTrust`, `authFlag` (brand-gated), `verdict`.
-
-## Stack & layout
-
-- `backend/` — Python 3.13 + FastAPI. One endpoint, `POST /check` (multipart:
-  listing images + optional `user_context`). Anthropic Python SDK, vision over the
-  images, `web_search` server tool, structured output = `CheckReport`.
-- `backend/app/` — `models.py` (contract), `claude_check.py` (the one Claude call),
-  `main.py` (the endpoint). The URL-fetch path (`depop.py`) was removed — see
-  `claude.mds/phase-0.md` for why.
-- iOS app (Swift/SwiftUI + Share Extension) — Phase 3, not built yet.
-
-## Run the backend
+## Useful validation
 
 ```sh
-cd backend
-/opt/homebrew/bin/python3.13 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # add ANTHROPIC_API_KEY
-uvicorn app.main:app --reload --port 8000
-# Test with real listing screenshots:
-curl -s -X POST localhost:8000/check \
-  -F 'images=@shot1.png' -F 'images=@shot2.png' \
-  -F 'user_context=it is a gift, I care more that it is legit than the price' \
-  | python3 -m json.tool
+# Backend, where its Python 3.13 environment is available
+backend/.venv/bin/python -m pytest backend/tests -q
+backend/.venv/bin/python phase-1-tests/test_search_trace.py
+
+# Browser extension
+node --test extension/tests/*.test.js
+
+# Vite onboarding site
+cd web && npm test && npm run build
 ```
 
-## Human-only TODOs
-
-`flags/` is gitignored — use it for TODOs that are strictly human actions
-(dashboard clicks, DNS, account setup, choosing a domain, anything no agent can
-do). One file per initiative (e.g. `flags/web-launch.md`). Don't put engineering
-work there, and don't try to complete items in it yourself.
-
-## Working principles (from the Preflight session)
-
-Reality over assumption (verify external facts live — that's how the 403 wall was
-found before it cost a week). Start simple, earn complexity. Honest pushback over
-agreeableness. The report must never fabricate a price or claim authenticity it
-can't support — calibrated, honest output is the whole point.
+The current-state snapshot records the last known successful runs and any
+worktree-local dependency limitations. Never infer deployment or distribution
+status solely from a local build.

@@ -1,8 +1,12 @@
 # Session handoff — live working state (2026-07-11)
 
+> Historical snapshot. It records the state at handoff time; use
+> [`docs/current-state.md`](../docs/current-state.md) for the canonical current
+> status and this file only for implementation context.
+
 > Snapshot for a fresh coding agent (any harness — written to be self-contained)
 > picking up mid-Phase-3. Read the root `CLAUDE.md` first (it auto-imports
-> `claude.mds/phase-3.md`, the active brief); this file is only the *live state*
+> `mds/phase-3.md`, the active brief); this file is only the *live state*
 > on top of that. Historical snapshots live in `artifacts/handoffs/`.
 
 ## Where we are

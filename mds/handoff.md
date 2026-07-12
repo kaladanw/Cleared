@@ -1,5 +1,9 @@
 # Session handoff — live working state (2026-07-11)
 
+> Historical snapshot. It records the state at handoff time; use
+> [`docs/current-state.md`](../docs/current-state.md) for the canonical current
+> status and this file only for implementation context.
+
 > Snapshot for a fresh agent picking up mid-flight. Read the root `CLAUDE.md`
 > first (locked decisions + `CheckReport` contract), then `phase-web.md` for the
 > web track. This file is only the *live state* on top of those.
