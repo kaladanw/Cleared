@@ -3,6 +3,7 @@ const { describe, it } = require("node:test");
 
 const {
   DEFAULT_BACKEND,
+  DEFAULT_MARKETPLACE,
   buildCheckListingRequest,
   postCheckListing,
   getCachedReport,
@@ -11,7 +12,7 @@ const {
 const RAILWAY_BACKEND = "https://cleared-backend-production.up.railway.app";
 
 describe("client", () => {
-  it("builds the /check-listing request body from listing, context, and URL", () => {
+  it("builds the /check-listing request body from listing, context, URL, and marketplace", () => {
     const body = buildCheckListingRequest(
       {
         facts: { brand: "Uniqlo", asking_price: 18 },
@@ -26,7 +27,9 @@ describe("client", () => {
       image_urls: ["https://media-photos.depop.com/item.jpg"],
       user_context: "gift",
       listing_url: "https://www.depop.com/products/some-item/",
+      marketplace: "depop",
     });
+    assert.equal(DEFAULT_MARKETPLACE, "depop");
   });
 
   it("posts JSON to the backend with a Bearer token when provided", async () => {
@@ -49,6 +52,7 @@ describe("client", () => {
         token: "jwt-token",
         userContext: "gift",
         listingUrl: "https://www.depop.com/products/some-item/",
+        marketplace: "depop",
         fetchImpl: fakeFetch,
       },
     );
@@ -66,6 +70,7 @@ describe("client", () => {
         image_urls: ["https://media-photos.depop.com/item.jpg"],
         user_context: "gift",
         listing_url: "https://www.depop.com/products/some-item/",
+        marketplace: "depop",
       }),
     );
   });

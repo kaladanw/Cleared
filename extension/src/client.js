@@ -1,13 +1,17 @@
 (function init(root) {
   const DEFAULT_BACKEND = "https://cleared-backend-production.up.railway.app";
   const DEFAULT_BACKEND_URL = DEFAULT_BACKEND + "/check-listing";
+  // Current marketplace for this content-script host. New marketplaces need their
+  // own content_scripts match + extractor + marketplace id (see extension/README.md).
+  const DEFAULT_MARKETPLACE = "depop";
 
-  function buildCheckListingRequest(listing, userContext, listingUrl) {
+  function buildCheckListingRequest(listing, userContext, listingUrl, marketplace) {
     return {
       facts: listing.facts || {},
       image_urls: listing.image_urls || [],
       user_context: userContext || null,
       listing_url: listingUrl || null,
+      marketplace: marketplace || DEFAULT_MARKETPLACE,
     };
   }
 
@@ -18,6 +22,7 @@
    *   token       {string}  — JWT (Authorization: Bearer). Required.
    *   userContext {string}  — buyer's free-text context.
    *   listingUrl  {string}  — window.location.href, used for history storage.
+   *   marketplace {string}  — marketplace slug (default "depop").
    *   backendUrl  {string}  — override backend URL (defaults to DEFAULT_BACKEND_URL).
    *   fetchImpl   {function} — injectable fetch for tests.
    */
@@ -36,6 +41,7 @@
       listing,
       options.userContext,
       options.listingUrl,
+      options.marketplace || DEFAULT_MARKETPLACE,
     );
 
     const backend = options.backendUrl || DEFAULT_BACKEND;
@@ -82,6 +88,7 @@
   const api = {
     DEFAULT_BACKEND,
     DEFAULT_BACKEND_URL,
+    DEFAULT_MARKETPLACE,
     buildCheckListingRequest,
     postCheckListing,
     getCachedReport,

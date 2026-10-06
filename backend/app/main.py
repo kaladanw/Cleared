@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from .auth import get_current_user, login, signup
 from .claude_check import run_check
 from .images import fetch_images
-from .models import CheckListingRequest, CheckReport, ListingFacts
+from .models import CheckListingRequest, CheckReport, ListingFacts, normalize_marketplace
 from .supabase_client import get_supabase
 
 logging.basicConfig(level=logging.INFO)
@@ -178,6 +178,7 @@ async def check_listing(
             listing_url=request.listing_url,
             listing_name=request.facts.model_or_name or request.facts.brand,
             report=report,
+            marketplace=request.marketplace,
         )
 
     return report
@@ -188,6 +189,7 @@ def _save_report(
     listing_url: str,
     listing_name: str | None,
     report: CheckReport,
+    marketplace: str = "depop",
 ) -> None:
     sb = get_supabase()
     if sb is None:
@@ -203,10 +205,16 @@ def _save_report(
             "user_id": user_id,
             "listing_url": listing_url,
             "listing_name": listing_name or "",
+            "marketplace": marketplace,
             "verdict": verdict_str,
             "report_json": report.model_dump(mode="json"),
         }).execute()
-        log.info("saved report for user=%s url=%s", user_id, listing_url)
+        log.info(
+            "saved report for user=%s marketplace=%s url=%s",
+            user_id,
+            marketplace,
+            listing_url,
+        )
     except Exception as exc:
         log.warning("report save failed (non-fatal): %r", exc)
 
@@ -251,21 +259,38 @@ async def get_cached_report(
 
 @app.get("/api/reports")
 async def list_reports(
+    marketplace: str | None = None,
     user: dict = Depends(get_current_user),
 ) -> list[dict]:
-    """All reports for the current user, newest first. Used by the history page."""
+    """All reports for the current user, newest first. Used by the hub / history page.
+
+    Optional ?marketplace=depop filters to one marketplace slug.
+    """
     sb = get_supabase()
     if sb is None:
         return []
 
+    marketplace_filter: str | None = None
+    if marketplace:
+        try:
+            marketplace_filter = normalize_marketplace(marketplace)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid marketplace filter. Use a slug like depop or vinted.",
+            )
+
     try:
-        result = (
+        query = (
             sb.table("reports")
-            .select("id, listing_url, listing_name, verdict, checked_at, report_json")
+            .select(
+                "id, listing_url, listing_name, marketplace, verdict, checked_at, report_json"
+            )
             .eq("user_id", user["id"])
-            .order("checked_at", desc=True)
-            .execute()
         )
+        if marketplace_filter:
+            query = query.eq("marketplace", marketplace_filter)
+        result = query.order("checked_at", desc=True).execute()
         return result.data or []
     except Exception as exc:
         log.warning("report list failed (non-fatal): %r", exc)

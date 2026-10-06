@@ -7,10 +7,27 @@ report is filled in by Claude in Phase 1+. The app renders `CheckReport` as the
 
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Marketplace ids: lowercase slug, e.g. depop / vinted. Keeps the column
+# forward-compatible without a schema change per marketplace.
+MARKETPLACE_SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+DEFAULT_MARKETPLACE = "depop"
+
+
+def normalize_marketplace(value: str | None) -> str:
+    """Return a validated marketplace slug, defaulting to depop."""
+    slug = (value or DEFAULT_MARKETPLACE).strip().lower()
+    if not MARKETPLACE_SLUG_RE.match(slug):
+        raise ValueError(
+            "marketplace must be a lowercase slug matching "
+            f"{MARKETPLACE_SLUG_RE.pattern} (e.g. depop, vinted)"
+        )
+    return slug
 
 
 class PriceFairness(str, Enum):
@@ -96,6 +113,16 @@ class CheckListingRequest(BaseModel):
     )
     listing_url: Optional[str] = Field(
         None,
-        description="The Depop listing URL (window.location.href from the extension). "
+        description="The listing URL (window.location.href from the extension). "
         "Used to store and look up cached reports in Supabase.",
     )
+    marketplace: str = Field(
+        default=DEFAULT_MARKETPLACE,
+        description="Source marketplace slug (depop now; vinted later). "
+        "Must match ^[a-z][a-z0-9_-]{0,31}$.",
+    )
+
+    @field_validator("marketplace")
+    @classmethod
+    def _normalize_marketplace(cls, value: str) -> str:
+        return normalize_marketplace(value)

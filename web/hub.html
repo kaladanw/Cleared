@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Your Cleared marketplace hub — past Depop listing checks in one place." />
+    <title>Cleared — Marketplace hub</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/hub" aria-label="Cleared hub">Cleared</a>
+      <nav aria-label="Main navigation">
+        <a href="/hub" aria-current="page">Hub</a>
+        <a href="#install">Install</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hub shell" aria-labelledby="hub-title">
+        <div class="hub-header">
+          <div>
+            <p class="page-label">Marketplace hub</p>
+            <h1 id="hub-title">Past <em>checks.</em></h1>
+            <p class="hub-intro">Listing checks from the Chrome extension land here — Depop now, more marketplaces later.</p>
+            <div class="account-summary">
+              <p>Signed in as <strong data-account-email></strong></p>
+              <button class="text-button" type="button" data-sign-out>Sign out</button>
+            </div>
+          </div>
+          <div class="hub-filters" role="group" aria-label="Filter by marketplace">
+            <button type="button" class="hub-filter" data-marketplace-filter="" aria-pressed="true">All</button>
+            <button type="button" class="hub-filter" data-marketplace-filter="depop" aria-pressed="false">Depop</button>
+          </div>
+        </div>
+
+        <p class="hub-count" data-reports-count></p>
+        <div class="hub-list" data-reports-list aria-live="polite"></div>
+      </section>
+
+      <section id="install" class="shell hub-install" aria-labelledby="install-title">
+        <section class="install-label" aria-labelledby="install-title">
+          <h2 id="install-title">Load Cleared in Chrome</h2>
+          <ol class="install-steps">
+            <li><div><strong>Get the extension folder</strong><p>Use the <code>extension</code> folder shared with your invite.</p></div></li>
+            <li><div><strong>Open Chrome extensions</strong><p><code>chrome://extensions</code></p></div></li>
+            <li><div><strong>Turn on Developer mode</strong><p>Use the switch in the top-right corner.</p></div></li>
+            <li><div><strong>Choose Load unpacked</strong><p>Select the <code>extension</code> folder.</p></div></li>
+          </ol>
+          <div class="install-finish">
+            <p>Then open a Depop listing. Cleared appears on the page; sign in once more inside the extension. Checked listings show up in this hub.</p>
+            <button class="button copy-button" type="button" data-copy-address>Copy Chrome address</button>
+            <p class="copy-status" data-copy-status role="status" aria-live="polite"></p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <a class="wordmark wordmark-small" href="/hub">C</a>
+      <p>© <span data-year></span> Cleared</p>
+      <nav aria-label="Footer navigation">
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </footer>
+    <script type="module" src="/src/hub.js"></script>
+  </body>
+</html>

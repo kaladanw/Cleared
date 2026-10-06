@@ -1,6 +1,7 @@
 -- Cleared — Supabase schema
 -- Paste this into the Supabase SQL Editor (project → SQL Editor → New query).
 -- Run it once after creating the project. Re-running is safe (IF NOT EXISTS guards).
+-- Existing projects: also run migrations/20261006_add_marketplace.sql.
 
 -- reports: one row per listing check, owned by a user.
 -- auth.users is managed by Supabase Auth; do not create it manually.
@@ -9,6 +10,7 @@ create table if not exists reports (
   user_id     uuid references auth.users(id) on delete cascade not null,
   listing_url text not null,
   listing_name text,
+  marketplace text not null default 'depop',
   verdict     text,
   report_json jsonb not null,
   checked_at  timestamptz default now()
@@ -21,6 +23,10 @@ create index if not exists reports_user_checked
 -- Index for the cached-revisit lookup: reports for a user + URL.
 create index if not exists reports_user_url
   on reports (user_id, listing_url);
+
+-- Index for marketplace-filtered history (hub: All / Depop / Vinted later).
+create index if not exists reports_user_marketplace_checked
+  on reports (user_id, marketplace, checked_at desc);
 
 -- Row-level security: each user sees only their own reports.
 alter table reports enable row level security;

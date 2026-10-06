@@ -213,7 +213,7 @@
 
     .report-summary {
       display: grid;
-      grid-template-columns: auto 1fr auto auto;
+      grid-template-columns: auto auto 1fr auto auto;
       align-items: center;
       gap: 12px;
       padding: 12px 14px;
@@ -241,6 +241,21 @@
     .pill--buy      { background: #D4EDDF; color: #1E5C3A; }
     .pill--negotiate { background: #F5EDDA; color: #7A5B1A; }
     .pill--skip     { background: #F5DDD9; color: var(--thread); }
+
+    .marketplace-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--soft);
+      background: var(--muslin);
+      white-space: nowrap;
+    }
 
     .report-name {
       font-size: 13px;
@@ -515,6 +530,7 @@
     const verdict = report.verdict || {};
     const rec = row.verdict || verdict.recommendation || "";
     const pillClass = "pill" + (rec === "buy" ? " pill--buy" : rec === "negotiate" ? " pill--negotiate" : rec === "skip" ? " pill--skip" : "");
+    const marketplace = esc(row.marketplace || "depop");
     const name = esc(row.listing_name || "Unnamed listing");
     const date = formatDate(row.checked_at);
     const url = esc(row.listing_url || "#");
@@ -542,6 +558,7 @@
       <article class="report-card">
         <div class="report-summary">
           <span class="${pillClass}">${esc(rec || "check")}</span>
+          <span class="marketplace-badge">${marketplace}</span>
           <span class="report-name"><a href="${url}" target="_blank" rel="noreferrer noopener" onclick="event.stopPropagation()">${name}</a></span>
           <span class="report-date">${date}</span>
           <span class="report-toggle">Details</span>

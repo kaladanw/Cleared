@@ -2,10 +2,26 @@
 
 Manifest V3 Chrome extension for the web port.
 
-On Depop product pages, the content script reads
-`__NEXT_DATA__`, injects a small Cleared panel, POSTs extracted facts plus image
-URLs to the deployed Railway backend, and renders the returned `CheckReport`
-in-page. Login, checks, and cached-report reads share the same backend setting.
+On Depop product pages, the content script reads listing structured data
+(ld+json / `__NEXT_DATA__`), injects a small Cleared panel, POSTs extracted
+facts plus image URLs to the deployed Railway backend with
+`marketplace: "depop"`, and renders the returned `CheckReport` in-page. Login,
+checks, and cached-report reads share the same backend setting. Past checks
+appear on the Cleared web hub after the same account signs in there.
+
+## Adding another marketplace (e.g. Vinted)
+
+The hub is marketplace-aware. To plug in a new site:
+
+1. Add `host_permissions` + a `content_scripts` match for that origin in
+   `manifest.json`.
+2. Add or branch an extractor that returns the same `{ facts, image_urls }`
+   shape as `src/extractor.js`.
+3. Pass a new marketplace slug into `postCheckListing` (e.g.
+   `marketplace: "vinted"`). The backend accepts lowercase slugs matching
+   `^[a-z][a-z0-9_-]{0,31}$` and stores them on each report.
+
+No Vinted extractor ships in this folder yet — Depop is the first marketplace.
 
 ## Backend selection
 

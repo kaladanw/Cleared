@@ -292,3 +292,177 @@ code { color: var(--green); font: 500 .92em/1.4 var(--mono); overflow-wrap: anyw
   .auth-label, .install-label { animation: label-in 360ms ease-out; }
   @keyframes label-in { from { opacity: 0; transform: translateY(8px); } }
 }
+
+/* ---- Marketplace hub ---- */
+.hub { padding-block: 56px 40px; }
+.hub-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 28px;
+  align-items: end;
+  margin-bottom: 28px;
+}
+.hub h1 {
+  margin: 8px 0 12px;
+  color: var(--indigo);
+  font: 700 clamp(3.4rem, 7vw, 5.6rem)/.88 var(--display);
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+.hub h1 em { color: var(--green); font-style: normal; }
+.hub-intro { max-width: 520px; margin: 0; font-size: 1.05rem; line-height: 1.55; }
+.hub-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.hub-filter {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--indigo);
+  background: transparent;
+  color: var(--indigo);
+  cursor: pointer;
+  font: 600 12px/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.hub-filter[aria-pressed="true"] {
+  background: var(--indigo);
+  color: var(--muslin);
+}
+.hub-count {
+  margin: 0 0 14px;
+  color: var(--soft);
+  font: 500 12px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.hub-list { display: grid; gap: 10px; }
+.hub-card {
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 2px 2px 0 rgba(199, 168, 120, .45);
+}
+.hub-card__summary {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.hub-card__summary:hover { background: rgba(28, 36, 51, .02); }
+.hub-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #ede4d0;
+  color: var(--indigo);
+  font: 600 10px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hub-pill--buy { background: #d4eddf; color: #1e5c3a; }
+.hub-pill--negotiate { background: #f5edda; color: #7a5b1a; }
+.hub-pill--skip { background: #f5ddd9; color: var(--thread); }
+.hub-marketplace {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: var(--muslin);
+  color: var(--soft);
+  font: 600 10px/1.3 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hub-card__name {
+  font-weight: 500;
+  color: var(--indigo);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub-card__name a { text-decoration: none; }
+.hub-card__name a:hover { text-decoration: underline; text-decoration-color: var(--thread); }
+.hub-card__date, .hub-card__toggle {
+  color: var(--soft);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hub-card__detail {
+  display: none;
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+}
+.hub-card__detail.is-open { display: block; }
+.hub-one-line {
+  margin: 14px 0 0;
+  color: var(--indigo);
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.hub-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 14px;
+}
+.hub-detail-grid h3 {
+  margin: 0 0 8px;
+  color: var(--thread);
+  font: 600 11px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.hub-detail-grid dl { display: grid; gap: 4px; margin: 0; }
+.hub-detail-grid dl div { display: flex; justify-content: space-between; gap: 10px; }
+.hub-detail-grid dt { color: var(--soft); font: 400 12px/1.3 var(--mono); }
+.hub-detail-grid dd { margin: 0; color: var(--indigo); font: 600 12px/1.3 var(--mono); text-align: right; }
+.hub-detail-grid ul { margin: 0; padding-left: 18px; }
+.hub-detail-grid li { font-size: 13px; line-height: 1.45; }
+.hub-detail-grid li + li { margin-top: 3px; }
+.hub-muted { margin: 0; color: var(--soft); font-size: 13px; }
+.hub-state {
+  margin: 0;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--soft);
+  font: 500 12px/1.5 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.hub-state--error { color: var(--thread); text-transform: none; letter-spacing: 0; font-family: var(--body); }
+.hub-empty {
+  padding: 42px 28px;
+  border: 1px dashed var(--kraft);
+  background: var(--card);
+  text-align: center;
+}
+.hub-empty h2 {
+  margin: 0 0 10px;
+  color: var(--indigo);
+  font: 700 32px/1 var(--display);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.hub-empty p { max-width: 520px; margin: 0 auto 22px; line-height: 1.55; }
+.hub-install { padding-block: 20px 70px; }
+.hub-install .install-label { max-width: 720px; margin-inline: auto; }
+
+@media (max-width: 700px) {
+  .hub-card__summary {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "pill market toggle"
+      "name name date";
+  }
+  .hub-pill { grid-area: pill; }
+  .hub-marketplace { grid-area: market; }
+  .hub-card__name { grid-area: name; white-space: normal; }
+  .hub-card__date { grid-area: date; }
+  .hub-card__toggle { grid-area: toggle; justify-self: end; }
+  .hub-detail-grid { grid-template-columns: 1fr; }
+}

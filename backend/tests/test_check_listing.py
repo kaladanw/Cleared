@@ -13,7 +13,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from app import claude_check
-from app.models import CheckReport, ListingFacts, Verdict
+from app.models import CheckListingRequest, CheckReport, ListingFacts, Verdict, normalize_marketplace
 
 # Fake user returned by get_current_user in tests that bypass auth.
 _FAKE_USER = {"id": "test-user-id", "email": "test@test.com"}
@@ -175,6 +175,125 @@ class CheckListingEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Could not fetch listing photos", response.json()["error"])
         run.assert_not_called()
+
+
+class MarketplaceModelTests(unittest.TestCase):
+    def test_default_marketplace_is_depop(self):
+        req = CheckListingRequest(facts={}, image_urls=[])
+        self.assertEqual(req.marketplace, "depop")
+
+    def test_marketplace_slug_normalized(self):
+        req = CheckListingRequest(marketplace="  VinTed ")
+        self.assertEqual(req.marketplace, "vinted")
+        self.assertEqual(normalize_marketplace("depop"), "depop")
+
+    def test_invalid_marketplace_rejected(self):
+        with self.assertRaises(Exception):
+            CheckListingRequest(marketplace="Depop!")
+        with self.assertRaises(ValueError):
+            normalize_marketplace("1bad")
+
+
+class MarketplacePersistAndListTests(unittest.TestCase):
+    def _make_client_with_auth(self):
+        from app import main
+        from app.auth import get_current_user
+
+        main.app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
+        return TestClient(main.app), main
+
+    def tearDown(self):
+        from app import main
+        main.app.dependency_overrides.clear()
+
+    def test_check_listing_saves_marketplace(self):
+        client, main = self._make_client_with_auth()
+        report = CheckReport(
+            listing_facts=ListingFacts(brand="Uniqlo", model_or_name="Shirt"),
+            verdict=Verdict(recommendation="buy", one_line="ok"),
+        )
+        inserts = []
+
+        class FakeTable:
+            def insert(self, row):
+                inserts.append(row)
+                return self
+
+            def execute(self):
+                return mock.Mock(data=inserts)
+
+        class FakeSB:
+            def table(self, name):
+                self.name = name
+                return FakeTable()
+
+        with mock.patch.object(main, "fetch_images", return_value=[(b"img", "image/jpeg")]), \
+                mock.patch.object(main, "run_check", return_value=report), \
+                mock.patch.object(main, "get_supabase", return_value=FakeSB()):
+            response = client.post(
+                "/check-listing",
+                json={
+                    "facts": {"brand": "Uniqlo", "model_or_name": "Shirt"},
+                    "image_urls": ["https://media-photos.depop.com/item.jpg"],
+                    "listing_url": "https://www.depop.com/products/x/",
+                    "marketplace": "depop",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(inserts), 1)
+        self.assertEqual(inserts[0]["marketplace"], "depop")
+        self.assertEqual(inserts[0]["listing_url"], "https://www.depop.com/products/x/")
+        self.assertEqual(inserts[0]["user_id"], "test-user-id")
+
+    def test_list_reports_includes_marketplace_and_filter(self):
+        client, main = self._make_client_with_auth()
+        rows = [
+            {
+                "id": "1",
+                "listing_url": "https://www.depop.com/products/a/",
+                "listing_name": "A",
+                "marketplace": "depop",
+                "verdict": "buy",
+                "checked_at": "2026-10-01T00:00:00Z",
+                "report_json": {},
+            }
+        ]
+        calls = {"eq": []}
+
+        class FakeQuery:
+            def select(self, *_a, **_k):
+                return self
+
+            def eq(self, key, value):
+                calls["eq"].append((key, value))
+                return self
+
+            def order(self, *_a, **_k):
+                return self
+
+            def execute(self):
+                return mock.Mock(data=rows)
+
+        class FakeSB:
+            def table(self, name):
+                return FakeQuery()
+
+        with mock.patch.object(main, "get_supabase", return_value=FakeSB()):
+            response = client.get("/api/reports?marketplace=depop")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body[0]["marketplace"], "depop")
+        self.assertIn(("user_id", "test-user-id"), calls["eq"])
+        self.assertIn(("marketplace", "depop"), calls["eq"])
+
+    def test_list_reports_rejects_invalid_marketplace_filter(self):
+        client, main = self._make_client_with_auth()
+        with mock.patch.object(main, "get_supabase", return_value=object()):
+            response = client.get("/api/reports?marketplace=BAD!")
+        self.assertEqual(response.status_code, 422)
+
 
 
 if __name__ == "__main__":
