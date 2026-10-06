@@ -466,3 +466,132 @@ code { color: var(--green); font: 500 .92em/1.4 var(--mono); overflow-wrap: anyw
   .hub-card__toggle { grid-area: toggle; justify-self: end; }
   .hub-detail-grid { grid-template-columns: 1fr; }
 }
+
+/* ---- Hub triage toolbar + card enrichments ---- */
+.hub-toolbar {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(3, minmax(110px, 0.7fr)) repeat(2, minmax(120px, 0.6fr)) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 8px 0 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.hub-toolbar label {
+  display: grid;
+  gap: 6px;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.hub-toolbar input,
+.hub-toolbar select,
+.hub-toolbar textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--indigo);
+  background: var(--muslin);
+  color: var(--indigo);
+  font: 400 14px/1.3 var(--body);
+}
+.hub-search { grid-column: 1 / 2; }
+.hub-toolbar__apply { min-height: 42px; padding-inline: 16px; }
+.hub-card__copy { min-width: 0; }
+.hub-card__blurb {
+  margin: 4px 0 0;
+  color: var(--indigo);
+  font-size: 13px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hub-card__meta {
+  margin: 4px 0 0;
+  color: var(--soft);
+  font: 500 11px/1.35 var(--mono);
+}
+.hub-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--kraft);
+  background: #f3ebe0;
+  color: var(--indigo);
+  font: 600 10px/1.3 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hub-card__summary {
+  grid-template-columns: auto auto auto 1fr auto auto;
+}
+.hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.hub-action { min-height: 40px; padding: 10px 14px; font-size: 12px; }
+.hub-action--ghost {
+  background: transparent;
+  color: var(--indigo);
+  border-color: var(--indigo);
+  box-shadow: 3px 3px 0 var(--kraft);
+}
+.hub-triage {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--kraft);
+}
+.hub-triage label {
+  display: grid;
+  gap: 6px;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.hub-triage select,
+.hub-triage input,
+.hub-triage textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--line);
+  background: var(--muslin);
+  color: var(--indigo);
+  font: 400 14px/1.4 var(--body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.hub-triage textarea { min-height: 72px; resize: vertical; }
+
+@media (max-width: 980px) {
+  .hub-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hub-search,
+  .hub-toolbar__apply { grid-column: 1 / -1; }
+}
+
+@media (max-width: 700px) {
+  .hub-card__summary {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "pill market status"
+      "copy copy copy"
+      "date date toggle";
+  }
+  .hub-pill { grid-area: pill; }
+  .hub-marketplace { grid-area: market; }
+  .hub-status-badge { grid-area: status; justify-self: end; }
+  .hub-card__copy { grid-area: copy; }
+  .hub-card__date { grid-area: date; }
+  .hub-card__toggle { grid-area: toggle; justify-self: end; }
+}

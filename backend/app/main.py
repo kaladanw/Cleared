@@ -26,7 +26,16 @@ from pydantic import BaseModel
 from .auth import get_current_user, login, signup
 from .claude_check import run_check
 from .images import fetch_images
-from .models import CheckListingRequest, CheckReport, ListingFacts, normalize_marketplace
+from .models import (
+    CheckListingRequest,
+    CheckReport,
+    ListingFacts,
+    ReportHubUpdate,
+    HUB_STATUS_NONE,
+    HUB_STATUSES,
+    normalize_hub_status,
+    normalize_marketplace,
+)
 from .supabase_client import get_supabase
 
 logging.basicConfig(level=logging.INFO)
@@ -179,6 +188,7 @@ async def check_listing(
             listing_name=request.facts.model_or_name or request.facts.brand,
             report=report,
             marketplace=request.marketplace,
+            image_urls=request.image_urls,
         )
 
     return report
@@ -190,6 +200,7 @@ def _save_report(
     listing_name: str | None,
     report: CheckReport,
     marketplace: str = "depop",
+    image_urls: list[str] | None = None,
 ) -> None:
     sb = get_supabase()
     if sb is None:
@@ -208,6 +219,7 @@ def _save_report(
             "marketplace": marketplace,
             "verdict": verdict_str,
             "report_json": report.model_dump(mode="json"),
+            "image_urls": list(image_urls or []),
         }).execute()
         log.info(
             "saved report for user=%s marketplace=%s url=%s",
@@ -217,6 +229,45 @@ def _save_report(
         )
     except Exception as exc:
         log.warning("report save failed (non-fatal): %r", exc)
+
+
+_REPORT_SELECT = (
+    "id, listing_url, listing_name, marketplace, verdict, checked_at, "
+    "report_json, hub_status, notes, tags, image_urls"
+)
+
+
+def _filter_reports_rows(
+    rows: list[dict],
+    *,
+    q: str | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> list[dict]:
+    """Apply text + date filters that are awkward in PostgREST alone."""
+    out = rows
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            filtered = []
+            for row in out:
+                hay = " ".join(
+                    [
+                        str(row.get("listing_name") or ""),
+                        str(row.get("listing_url") or ""),
+                        str(row.get("notes") or ""),
+                        " ".join(row.get("tags") or []),
+                        str((row.get("report_json") or {}).get("verdict", {}).get("one_line") or ""),
+                    ]
+                ).lower()
+                if needle in hay:
+                    filtered.append(row)
+            out = filtered
+    if date_from:
+        out = [r for r in out if (r.get("checked_at") or "")[:10] >= date_from[:10]]
+    if date_to:
+        out = [r for r in out if (r.get("checked_at") or "")[:10] <= date_to[:10]]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -260,11 +311,17 @@ async def get_cached_report(
 @app.get("/api/reports")
 async def list_reports(
     marketplace: str | None = None,
+    verdict: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     user: dict = Depends(get_current_user),
 ) -> list[dict]:
-    """All reports for the current user, newest first. Used by the hub / history page.
+    """Reports for the current user, newest first (hub).
 
-    Optional ?marketplace=depop filters to one marketplace slug.
+    Filters: marketplace, verdict (buy|negotiate|skip), status
+    (watching|bought|skipped|sold_out|none), q (text), date_from/date_to (YYYY-MM-DD).
     """
     sb = get_supabase()
     if sb is None:
@@ -280,21 +337,174 @@ async def list_reports(
                 detail="Invalid marketplace filter. Use a slug like depop or vinted.",
             )
 
+    verdict_filter: str | None = None
+    if verdict:
+        v = verdict.strip().lower()
+        if v not in {"buy", "negotiate", "skip"}:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid verdict filter. Use buy, negotiate, or skip.",
+            )
+        verdict_filter = v
+
+    status_filter: str | None = None
+    status_is_none = False
+    if status is not None and str(status).strip() != "":
+        try:
+            normalized = normalize_hub_status(status)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid status filter. Use watching, bought, skipped, sold_out, or none.",
+            )
+        if normalized is None:
+            status_is_none = True
+        else:
+            status_filter = normalized
+
     try:
         query = (
             sb.table("reports")
-            .select(
-                "id, listing_url, listing_name, marketplace, verdict, checked_at, report_json"
-            )
+            .select(_REPORT_SELECT)
             .eq("user_id", user["id"])
         )
         if marketplace_filter:
             query = query.eq("marketplace", marketplace_filter)
+        if verdict_filter:
+            query = query.eq("verdict", verdict_filter)
+        if status_filter:
+            query = query.eq("hub_status", status_filter)
+        if status_is_none:
+            query = query.is_("hub_status", "null")
         result = query.order("checked_at", desc=True).execute()
-        return result.data or []
+        rows = result.data or []
+        return _filter_reports_rows(rows, q=q, date_from=date_from, date_to=date_to)
     except Exception as exc:
         log.warning("report list failed (non-fatal): %r", exc)
         return []
+
+
+@app.patch("/api/reports/{report_id}")
+async def update_report_hub(
+    report_id: str,
+    body: ReportHubUpdate,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Update hub triage fields (status / notes / tags) on an owned report."""
+    sb = get_supabase()
+    if sb is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured.")
+
+    patch: dict = {}
+    if "status" in body.model_fields_set:
+        if body.status == HUB_STATUS_NONE or body.status is None:
+            patch["hub_status"] = None
+        else:
+            patch["hub_status"] = body.status
+    if "notes" in body.model_fields_set:
+        patch["notes"] = body.notes or ""
+    if "tags" in body.model_fields_set:
+        patch["tags"] = body.tags or []
+
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+
+    try:
+        result = (
+            sb.table("reports")
+            .update(patch)
+            .eq("id", report_id)
+            .eq("user_id", user["id"])
+            .select(_REPORT_SELECT)
+            .execute()
+        )
+    except Exception as exc:
+        log.warning("report patch failed: %r", exc)
+        raise HTTPException(status_code=500, detail="Could not update report.") from exc
+
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    return rows[0]
+
+
+@app.post("/api/reports/{report_id}/recheck")
+async def recheck_report(
+    report_id: str,
+    user: dict = Depends(get_current_user),
+) -> CheckReport:
+    """Best-effort recheck using stored facts + image_urls from a prior report.
+
+    Requires image_urls saved on the row (newer checks). Older rows without
+    images should use Open listing + the Chrome extension instead.
+    """
+    sb = get_supabase()
+    if sb is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured.")
+
+    try:
+        result = (
+            sb.table("reports")
+            .select(_REPORT_SELECT)
+            .eq("id", report_id)
+            .eq("user_id", user["id"])
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        log.warning("recheck load failed: %r", exc)
+        raise HTTPException(status_code=500, detail="Could not load report.") from exc
+
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Report not found.")
+
+    row = rows[0]
+    image_urls = row.get("image_urls") or []
+    if isinstance(image_urls, str):
+        image_urls = []
+    if not image_urls:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This check has no stored image URLs for an API recheck. "
+                "Open the listing and use the Chrome extension instead."
+            ),
+        )
+
+    prior = row.get("report_json") or {}
+    facts_data = prior.get("listing_facts") or {}
+    try:
+        facts = ListingFacts.model_validate(facts_data)
+    except Exception:
+        facts = ListingFacts()
+
+    images = fetch_images(list(image_urls))
+    if not images:
+        return CheckReport(
+            listing_facts=ListingFacts(),
+            error="Could not fetch listing photos from the stored image URLs.",
+        )
+
+    log.info("rechecking report=%s from %d stored image(s)", report_id, len(images))
+    report = run_check(images, user_context=None, seeded_facts=facts)
+    if report.error:
+        log.warning("recheck returned error: %s", report.error)
+
+    listing_url = row.get("listing_url")
+    if listing_url and not report.error:
+        _save_report(
+            user_id=user["id"],
+            listing_url=listing_url,
+            listing_name=row.get("listing_name")
+            or facts.model_or_name
+            or facts.brand,
+            report=report,
+            marketplace=row.get("marketplace") or "depop",
+            image_urls=list(image_urls),
+        )
+
+    return report
 
 
 # ---------------------------------------------------------------------------

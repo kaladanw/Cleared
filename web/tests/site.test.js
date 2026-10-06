@@ -25,14 +25,17 @@ test("landing page exposes invite auth and honest extension setup", async () => 
   assert.doesNotMatch(html, /universal link/i);
 });
 
-test("hub page lists past checks with marketplace filters and install steps", async () => {
+test("hub page lists past checks with triage filters and install steps", async () => {
   const html = await readFile(new URL("../hub.html", import.meta.url), "utf8");
   assert.match(html, /data-reports-list/);
-  assert.match(html, /data-marketplace-filter=""/);
-  assert.match(html, /data-marketplace-filter="depop"/);
+  assert.match(html, /data-hub-filters/);
+  assert.match(html, /data-filter-marketplace/);
+  assert.match(html, /data-filter-verdict/);
+  assert.match(html, /data-filter-status/);
+  assert.match(html, /data-filter-q/);
   assert.match(html, /id="install"/);
   assert.match(html, /chrome:\/\/extensions/);
-  assert.match(html, /No checks yet|data-empty-state|Past/);
+  assert.match(html, /Past/);
 });
 
 test("web session uses sessionStorage rather than durable or password storage", async () => {

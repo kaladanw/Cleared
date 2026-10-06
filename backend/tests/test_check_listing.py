@@ -13,7 +13,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from app import claude_check
-from app.models import CheckListingRequest, CheckReport, ListingFacts, Verdict, normalize_marketplace
+from app.models import CheckListingRequest, CheckReport, ListingFacts, ReportHubUpdate, Verdict, normalize_hub_status, normalize_marketplace
 
 # Fake user returned by get_current_user in tests that bypass auth.
 _FAKE_USER = {"id": "test-user-id", "email": "test@test.com"}
@@ -245,6 +245,7 @@ class MarketplacePersistAndListTests(unittest.TestCase):
         self.assertEqual(inserts[0]["marketplace"], "depop")
         self.assertEqual(inserts[0]["listing_url"], "https://www.depop.com/products/x/")
         self.assertEqual(inserts[0]["user_id"], "test-user-id")
+        self.assertEqual(inserts[0]["image_urls"], ["https://media-photos.depop.com/item.jpg"])
 
     def test_list_reports_includes_marketplace_and_filter(self):
         client, main = self._make_client_with_auth()
@@ -293,6 +294,244 @@ class MarketplacePersistAndListTests(unittest.TestCase):
         with mock.patch.object(main, "get_supabase", return_value=object()):
             response = client.get("/api/reports?marketplace=BAD!")
         self.assertEqual(response.status_code, 422)
+
+
+
+class HubTriageTests(unittest.TestCase):
+    def _make_client_with_auth(self):
+        from app import main
+        from app.auth import get_current_user
+
+        main.app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
+        return TestClient(main.app), main
+
+    def tearDown(self):
+        from app import main
+        main.app.dependency_overrides.clear()
+
+    def test_hub_status_helpers(self):
+        self.assertEqual(normalize_hub_status(" Watching "), "watching")
+        self.assertIsNone(normalize_hub_status("none"))
+        with self.assertRaises(ValueError):
+            normalize_hub_status("archived")
+        update = ReportHubUpdate(status="none", notes="  hi  ", tags=["Gift", "gift", " winter "])
+        self.assertEqual(update.status, "none")
+        self.assertEqual(update.notes, "  hi  ")
+        self.assertEqual(update.tags, ["Gift", "winter"])
+
+    def test_list_reports_filters_verdict_status_and_q(self):
+        client, main = self._make_client_with_auth()
+        rows = [
+            {
+                "id": "1",
+                "listing_url": "https://www.depop.com/products/polo/",
+                "listing_name": "RL Polo",
+                "marketplace": "depop",
+                "verdict": "buy",
+                "hub_status": "watching",
+                "notes": "gift idea",
+                "tags": ["winter"],
+                "image_urls": ["https://media-photos.depop.com/a.jpg"],
+                "checked_at": "2026-10-05T12:00:00Z",
+                "report_json": {"verdict": {"one_line": "fair deal"}},
+            },
+            {
+                "id": "2",
+                "listing_url": "https://www.depop.com/products/other/",
+                "listing_name": "Other",
+                "marketplace": "depop",
+                "verdict": "skip",
+                "hub_status": None,
+                "notes": "",
+                "tags": [],
+                "image_urls": [],
+                "checked_at": "2026-09-01T12:00:00Z",
+                "report_json": {},
+            },
+        ]
+        calls = {"eq": [], "is_": []}
+
+        class FakeQuery:
+            def select(self, *_a, **_k):
+                return self
+
+            def eq(self, key, value):
+                calls["eq"].append((key, value))
+                return self
+
+            def is_(self, key, value):
+                calls["is_"].append((key, value))
+                return self
+
+            def order(self, *_a, **_k):
+                return self
+
+            def execute(self):
+                return mock.Mock(data=rows)
+
+        class FakeSB:
+            def table(self, name):
+                return FakeQuery()
+
+        with mock.patch.object(main, "get_supabase", return_value=FakeSB()):
+            response = client.get(
+                "/api/reports?verdict=buy&status=watching&q=polo&date_from=2026-10-01"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["id"], "1")
+        self.assertEqual(body[0]["hub_status"], "watching")
+        self.assertIn(("verdict", "buy"), calls["eq"])
+        self.assertIn(("hub_status", "watching"), calls["eq"])
+
+    def test_patch_report_updates_triage_fields(self):
+        client, main = self._make_client_with_auth()
+        updated = {
+            "id": "abc",
+            "listing_url": "https://www.depop.com/products/x/",
+            "listing_name": "Shirt",
+            "marketplace": "depop",
+            "verdict": "buy",
+            "hub_status": "bought",
+            "notes": "got it",
+            "tags": ["keep"],
+            "image_urls": [],
+            "checked_at": "2026-10-05T12:00:00Z",
+            "report_json": {},
+        }
+        patches = []
+
+        class FakeQuery:
+            def update(self, row):
+                patches.append(row)
+                return self
+
+            def eq(self, *_a, **_k):
+                return self
+
+            def select(self, *_a, **_k):
+                return self
+
+            def execute(self):
+                return mock.Mock(data=[updated])
+
+        class FakeSB:
+            def table(self, name):
+                return FakeQuery()
+
+        with mock.patch.object(main, "get_supabase", return_value=FakeSB()):
+            response = client.patch(
+                "/api/reports/abc",
+                json={"status": "bought", "notes": "got it", "tags": ["keep"]},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["hub_status"], "bought")
+        self.assertEqual(patches[0]["hub_status"], "bought")
+        self.assertEqual(patches[0]["notes"], "got it")
+        self.assertEqual(patches[0]["tags"], ["keep"])
+
+    def test_recheck_requires_image_urls(self):
+        client, main = self._make_client_with_auth()
+        row = {
+            "id": "abc",
+            "listing_url": "https://www.depop.com/products/x/",
+            "listing_name": "Shirt",
+            "marketplace": "depop",
+            "verdict": "buy",
+            "hub_status": None,
+            "notes": "",
+            "tags": [],
+            "image_urls": [],
+            "checked_at": "2026-10-05T12:00:00Z",
+            "report_json": {"listing_facts": {"brand": "Uniqlo"}},
+        }
+
+        class FakeQuery:
+            def select(self, *_a, **_k):
+                return self
+
+            def eq(self, *_a, **_k):
+                return self
+
+            def limit(self, *_a, **_k):
+                return self
+
+            def execute(self):
+                return mock.Mock(data=[row])
+
+        class FakeSB:
+            def table(self, name):
+                return FakeQuery()
+
+        with mock.patch.object(main, "get_supabase", return_value=FakeSB()):
+            response = client.post("/api/reports/abc/recheck")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("image URLs", response.json()["detail"])
+
+    def test_recheck_runs_when_images_present(self):
+        client, main = self._make_client_with_auth()
+        row = {
+            "id": "abc",
+            "listing_url": "https://www.depop.com/products/x/",
+            "listing_name": "Shirt",
+            "marketplace": "depop",
+            "verdict": "buy",
+            "hub_status": None,
+            "notes": "",
+            "tags": [],
+            "image_urls": ["https://media-photos.depop.com/a.jpg"],
+            "checked_at": "2026-10-05T12:00:00Z",
+            "report_json": {"listing_facts": {"brand": "Uniqlo", "asking_price": 18}},
+        }
+        inserts = []
+
+        class FakeQuery:
+            def __init__(self):
+                self._mode = "select"
+
+            def select(self, *_a, **_k):
+                self._mode = "select"
+                return self
+
+            def insert(self, row):
+                inserts.append(row)
+                self._mode = "insert"
+                return self
+
+            def eq(self, *_a, **_k):
+                return self
+
+            def limit(self, *_a, **_k):
+                return self
+
+            def execute(self):
+                if self._mode == "insert":
+                    return mock.Mock(data=inserts)
+                return mock.Mock(data=[row])
+
+        class FakeSB:
+            def table(self, name):
+                return FakeQuery()
+
+        report = CheckReport(
+            listing_facts=ListingFacts(brand="Uniqlo"),
+            verdict=Verdict(recommendation="negotiate", one_line="still fair"),
+        )
+
+        with mock.patch.object(main, "get_supabase", return_value=FakeSB()), \
+                mock.patch.object(main, "fetch_images", return_value=[(b"img", "image/jpeg")]), \
+                mock.patch.object(main, "run_check", return_value=report) as run:
+            response = client.post("/api/reports/abc/recheck")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["verdict"]["recommendation"], "negotiate")
+        self.assertEqual(run.call_args.kwargs["seeded_facts"].brand, "Uniqlo")
+        self.assertEqual(len(inserts), 1)
+        self.assertEqual(inserts[0]["marketplace"], "depop")
 
 
 

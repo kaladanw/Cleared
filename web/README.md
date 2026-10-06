@@ -45,13 +45,17 @@ again inside the extension.
 ## Marketplace hub (`/hub`)
 
 Authenticated users land on the hub, which lists past listing checks from
-`GET /api/reports` (optional `?marketplace=` filter). Each card shows verdict,
-listing name/URL, marketplace badge, and date; expand for one-line verdict,
-price fairness, and trust highlights. Empty state points users at the Chrome
-extension on Depop. Extension install steps remain on the same page.
+`GET /api/reports`. Filters: marketplace, verdict, hub status, text search (`q`),
+and date from/to. Each card shows verdict, listing name/URL, marketplace badge,
+status, deal/trust one-liner, and date; expand for price/trust detail, notes,
+tags, **Open listing**, and **Recheck** (API recheck when `image_urls` were
+stored; otherwise opens the listing for an extension recheck).
 
-Depop is the first marketplace; the filter control is ready for Vinted later
-once an extractor ships.
+Statuses: watching / bought / skipped / sold_out (plus unset). Empty state
+points users at the Chrome extension on Depop. Install steps stay on the page.
+
+Depop is the first marketplace; filters are ready for Vinted later once an
+extractor ships. Apply both Supabase migrations under `backend/supabase/migrations/`.
 
 ## Domain and launch requirements
 
@@ -68,8 +72,8 @@ once an extractor ships.
 ## Still deferred
 
 Universal Links, Cleared-owned check-ID routing, shared login between web and
-extension, iOS `/check` persistence into the hub, and additional marketplace
-extractors (Vinted) are out of scope for this slice.
+extension, iOS `/check` persistence into the hub, share/export, price monitors,
+and additional marketplace extractors (Vinted) are out of scope for this slice.
 
 ## Extension/backend handoff
 

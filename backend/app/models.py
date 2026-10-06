@@ -19,6 +19,26 @@ MARKETPLACE_SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 DEFAULT_MARKETPLACE = "depop"
 
 
+HUB_STATUSES = frozenset({"watching", "bought", "skipped", "sold_out"})
+HUB_STATUS_NONE = "none"  # API/filter alias for unset (DB stores NULL)
+
+
+def normalize_hub_status(value: str | None, *, allow_none_alias: bool = True) -> str | None:
+    """Return a hub status or None (unset). Raises ValueError if invalid."""
+    if value is None:
+        return None
+    raw = str(value).strip().lower()
+    if raw == "" or (allow_none_alias and raw == HUB_STATUS_NONE):
+        return None
+    if raw not in HUB_STATUSES:
+        raise ValueError(
+            "status must be one of: watching, bought, skipped, sold_out, none"
+        )
+    return raw
+
+
+
+
 def normalize_marketplace(value: str | None) -> str:
     """Return a validated marketplace slug, defaulting to depop."""
     slug = (value or DEFAULT_MARKETPLACE).strip().lower()
@@ -126,3 +146,58 @@ class CheckListingRequest(BaseModel):
     @classmethod
     def _normalize_marketplace(cls, value: str) -> str:
         return normalize_marketplace(value)
+
+
+class ReportHubUpdate(BaseModel):
+    """Partial update for hub triage fields on an owned report."""
+
+    status: Optional[str] = Field(
+        None,
+        description="watching | bought | skipped | sold_out | none (clears). "
+        "Omit to leave unchanged.",
+    )
+    notes: Optional[str] = Field(
+        None, description="Free-text notes. Omit to leave unchanged."
+    )
+    tags: Optional[list[str]] = Field(
+        None, description="Replace tags list. Omit to leave unchanged."
+    )
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        # Preserve the literal "none" so the PATCH handler can clear the column.
+        raw = str(value).strip().lower()
+        if raw in ("", HUB_STATUS_NONE):
+            return HUB_STATUS_NONE
+        return normalize_hub_status(raw)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: Optional[list[str]]) -> Optional[list[str]]:
+        if value is None:
+            return None
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for tag in value:
+            t = " ".join(str(tag).split()).strip()
+            if not t:
+                continue
+            key = t.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(t[:40])
+            if len(cleaned) >= 12:
+                break
+        return cleaned
+
+    @field_validator("notes")
+    @classmethod
+    def _clamp_notes(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return str(value)[:4000]
+
