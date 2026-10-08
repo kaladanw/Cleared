@@ -103,3 +103,9 @@ test("Vite builds the share page", async () => {
   const config = await readFile(new URL("../vite.config.js", import.meta.url), "utf8");
   assert.match(config, /share\.html/);
 });
+
+test("hub uses the backend can_recheck flag (covers iOS stored screenshots)", async () => {
+  const source = await readFile(new URL("../src/hub.js", import.meta.url), "utf8");
+  assert.match(source, /row\.can_recheck/);
+  assert.match(source, /const hasImages = canRecheck\(row\)/);
+});

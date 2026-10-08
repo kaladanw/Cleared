@@ -48,8 +48,10 @@ Authenticated users land on the hub, which lists past listing checks from
 `GET /api/reports`. Filters: marketplace, verdict, hub status, text search (`q`),
 and date from/to. Each card shows verdict, listing name/URL, marketplace badge,
 status, deal/trust one-liner, and date; expand for price/trust detail, notes,
-tags, **Open listing**, and **Recheck** (API recheck when `image_urls` were
-stored; otherwise opens the listing for an extension recheck).
+tags, **Open listing**, and **Recheck** (API recheck when the row's
+`can_recheck` is true, i.e. extension `image_urls` or iOS screenshots in private
+storage were saved; otherwise opens the listing for a fresh check). Full API
+contract: [`docs/api-contract.md`](../docs/api-contract.md).
 
 Statuses: watching / bought / skipped / sold_out (plus unset). Empty state
 points users at the Chrome extension on Depop. Install steps stay on the page.
@@ -102,13 +104,13 @@ with `no-referrer`. Tokens are 43-char `secrets.token_urlsafe(32)` values.
 4. Replace the support placeholder with a monitored address or form.
 5. Finalize the privacy policy's report retention period and verify the production terms and retention settings for hosting, auth/database, and AI processors.
 6. Lock backend CORS to the reviewed Vercel production/preview origins when those hostnames are final: set `CLEARED_WEB_ORIGINS` (comma-separated) on the Railway backend to the Vercel prod domain and/or preview domain — see `backend/.env.example`.
-7. Apply the Supabase migrations in `backend/supabase/migrations/` in order (`20261006_add_marketplace.sql`, `20261006_hub_triage.sql`, `20261007_share_seller.sql`) so the hub, triage, share, and seller columns exist in production.
+7. Apply the Supabase migrations in `backend/supabase/migrations/` in order (`20261006_add_marketplace.sql`, `20261006_hub_triage.sql`, `20261007_share_seller.sql`, `20261008_ios_account_parity.sql`) so the hub, triage, share, and seller columns exist in production.
 8. Verify signup → `/hub`, `/privacy`, and `/support` on the production domain, including mobile layout, TLS, metadata, keyboard navigation, and a real support/deletion request.
 
 ## Still deferred
 
 Universal Links, Cleared-owned check-ID routing, shared login between web and
-extension, iOS `/check` persistence into the hub, price monitors, share-link
+extension, price monitors, share-link
 expiry/analytics, seller backfill for older checks, and additional marketplace
 extractors (Vinted) are out of scope for this slice.
 

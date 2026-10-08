@@ -118,6 +118,43 @@ class CheckReport(BaseModel):
     )
 
 
+class CheckResponse(CheckReport):
+    """CheckReport plus additive fields for /check and /check-listing.
+
+    Purely additive so older clients that decode CheckReport keep working.
+    """
+
+    report_id: Optional[str] = Field(
+        None,
+        description="ID of the saved row in reports (GET /api/reports). Null when "
+        "the check was not saved: shared-secret /check, error reports, or a save failure.",
+    )
+    images_stored: int = Field(
+        0,
+        description="Screenshots persisted to private storage for this report "
+        "(authenticated /check only). >0 means POST /api/reports/{id}/recheck works.",
+    )
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, max_length=4096)
+
+
+def normalize_listing_url(value: str | None) -> str | None:
+    """Optional listing URL from a multipart form: http(s), ≤2048 chars, or None.
+
+    Raises ValueError for anything else (→ 422).
+    """
+    if value is None:
+        return None
+    url = str(value).strip()
+    if not url:
+        return None
+    if len(url) > 2048 or not re.match(r"^https?://[^\s\"'<>]+$", url, re.IGNORECASE):
+        raise ValueError("listing_url must be an http(s) URL of at most 2048 characters.")
+    return url
+
+
 class CheckRequest(BaseModel):
     url: str
     user_context: Optional[str] = Field(

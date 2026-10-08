@@ -317,7 +317,7 @@ function parseTags(raw) {
 }
 
 function applyRowToCard(card, row) {
-  card.dataset.hasImages = Array.isArray(row.image_urls) && row.image_urls.length ? "1" : "0";
+  card.dataset.hasImages = canRecheck(row) ? "1" : "0";
   const status = card.querySelector("[data-status]");
   if (status) status.value = row.hub_status || "";
   const notes = card.querySelector("[data-notes]");
@@ -329,6 +329,12 @@ function applyRowToCard(card, row) {
     badge.textContent = statusLabel(row.hub_status);
     badge.hidden = !row.hub_status;
   }
+}
+
+/** API recheck is possible when the backend stored images (extension CDN URLs or iOS screenshots). */
+export function canRecheck(row) {
+  if (typeof row.can_recheck === "boolean") return row.can_recheck;
+  return Array.isArray(row.image_urls) && row.image_urls.length > 0;
 }
 
 function statusLabel(status) {
@@ -358,7 +364,7 @@ function renderCard(row) {
   const hubStatus = row.hub_status || "";
   const notes = esc(row.notes || "");
   const tagsValue = esc((row.tags || []).join(", "));
-  const hasImages = Array.isArray(row.image_urls) && row.image_urls.length > 0;
+  const hasImages = canRecheck(row);
   const id = esc(row.id || "");
   const seller = row.seller_username || "";
   const shareToken = esc(row.share_token || "");

@@ -470,7 +470,7 @@ class HubTriageTests(unittest.TestCase):
             response = client.post("/api/reports/abc/recheck")
 
         self.assertEqual(response.status_code, 409)
-        self.assertIn("image URLs", response.json()["detail"])
+        self.assertIn("no stored images", response.json()["detail"])
 
     def test_recheck_runs_when_images_present(self):
         client, main = self._make_client_with_auth()
