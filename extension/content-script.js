@@ -10,6 +10,11 @@
     return;
   }
 
+  // Marketplace hub: this content script is Depop-only today.
+  // To add Vinted (or another marketplace): new content_scripts match in
+  // manifest.json, a marketplace-specific extractor, and pass that marketplace
+  // id into postCheckListing({ marketplace: "vinted" }).
+
   const backendUrl = await config.getBackendUrl();
 
   const listing = extractor.extractListingFromDocument(document);
@@ -168,6 +173,7 @@
         token,
         userContext: textarea ? textarea.value.trim() : "",
         listingUrl: window.location.href,
+        marketplace: "depop",
         backendUrl,
       });
       output.innerHTML = ui.renderReportHtml(report);

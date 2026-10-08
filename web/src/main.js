@@ -56,6 +56,10 @@ function showAuth() {
   setMode("signup");
 }
 
+function goToHub() {
+  window.location.href = "/hub";
+}
+
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.authMode));
   button.addEventListener("keydown", (event) => {
@@ -94,7 +98,7 @@ form.addEventListener("submit", async (event) => {
     }
     const session = { accessToken: result.access_token, user: result.user };
     saveSession(session);
-    showInstall(session);
+    goToHub();
   } catch (error) {
     message.textContent = error.message;
     message.className = "form-message form-message--error";
@@ -109,7 +113,7 @@ document.querySelector("[data-sign-out]").addEventListener("click", () => {
   showAuth();
 });
 
-document.querySelector("[data-copy-address]").addEventListener("click", async () => {
+document.querySelector("[data-copy-address]")?.addEventListener("click", async () => {
   const status = document.querySelector("[data-copy-status]");
   try {
     await navigator.clipboard.writeText("chrome://extensions");
@@ -120,5 +124,8 @@ document.querySelector("[data-copy-address]").addEventListener("click", async ()
 });
 
 const savedSession = getSession();
-if (savedSession) showInstall(savedSession);
+if (savedSession) {
+  // Already signed in — hub is the primary post-auth surface.
+  goToHub();
+}
 }

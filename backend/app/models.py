@@ -7,10 +7,47 @@ report is filled in by Claude in Phase 1+. The app renders `CheckReport` as the
 
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Marketplace ids: lowercase slug, e.g. depop / vinted. Keeps the column
+# forward-compatible without a schema change per marketplace.
+MARKETPLACE_SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+DEFAULT_MARKETPLACE = "depop"
+
+
+HUB_STATUSES = frozenset({"watching", "bought", "skipped", "sold_out"})
+HUB_STATUS_NONE = "none"  # API/filter alias for unset (DB stores NULL)
+
+
+def normalize_hub_status(value: str | None, *, allow_none_alias: bool = True) -> str | None:
+    """Return a hub status or None (unset). Raises ValueError if invalid."""
+    if value is None:
+        return None
+    raw = str(value).strip().lower()
+    if raw == "" or (allow_none_alias and raw == HUB_STATUS_NONE):
+        return None
+    if raw not in HUB_STATUSES:
+        raise ValueError(
+            "status must be one of: watching, bought, skipped, sold_out, none"
+        )
+    return raw
+
+
+
+
+def normalize_marketplace(value: str | None) -> str:
+    """Return a validated marketplace slug, defaulting to depop."""
+    slug = (value or DEFAULT_MARKETPLACE).strip().lower()
+    if not MARKETPLACE_SLUG_RE.match(slug):
+        raise ValueError(
+            "marketplace must be a lowercase slug matching "
+            f"{MARKETPLACE_SLUG_RE.pattern} (e.g. depop, vinted)"
+        )
+    return slug
 
 
 class PriceFairness(str, Enum):
@@ -88,6 +125,41 @@ class CheckRequest(BaseModel):
     )
 
 
+SELLER_USERNAME_RE = re.compile(r"^[a-z0-9._-]{1,64}$")
+
+
+def normalize_seller_username(value: str | None) -> str | None:
+    """Lowercase, strip a leading @, and validate. Returns None when unusable."""
+    if value is None:
+        return None
+    raw = str(value).strip().lstrip("@").strip().lower()
+    if not raw or not SELLER_USERNAME_RE.match(raw):
+        return None
+    return raw
+
+
+class SellerInfo(BaseModel):
+    """Seller identity read off the listing page by the extension (best-effort)."""
+
+    username: Optional[str] = None
+    profile_url: Optional[str] = None
+
+    @field_validator("username")
+    @classmethod
+    def _username(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_seller_username(value)
+
+    @field_validator("profile_url")
+    @classmethod
+    def _profile_url(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        url = str(value).strip()
+        if len(url) > 300 or not re.match(r"^https?://[^\s\"'<>]+$", url):
+            return None
+        return url
+
+
 class CheckListingRequest(BaseModel):
     facts: ListingFacts = Field(default_factory=ListingFacts)
     image_urls: list[str] = Field(default_factory=list)
@@ -96,6 +168,77 @@ class CheckListingRequest(BaseModel):
     )
     listing_url: Optional[str] = Field(
         None,
-        description="The Depop listing URL (window.location.href from the extension). "
+        description="The listing URL (window.location.href from the extension). "
         "Used to store and look up cached reports in Supabase.",
     )
+    marketplace: str = Field(
+        default=DEFAULT_MARKETPLACE,
+        description="Source marketplace slug (depop now; vinted later). "
+        "Must match ^[a-z][a-z0-9_-]{0,31}$.",
+    )
+
+    seller: Optional[SellerInfo] = Field(
+        None,
+        description="Seller identity from the listing page ({username, profile_url}); "
+        "null when the extractor could not find it.",
+    )
+
+    @field_validator("marketplace")
+    @classmethod
+    def _normalize_marketplace(cls, value: str) -> str:
+        return normalize_marketplace(value)
+
+
+class ReportHubUpdate(BaseModel):
+    """Partial update for hub triage fields on an owned report."""
+
+    status: Optional[str] = Field(
+        None,
+        description="watching | bought | skipped | sold_out | none (clears). "
+        "Omit to leave unchanged.",
+    )
+    notes: Optional[str] = Field(
+        None, description="Free-text notes. Omit to leave unchanged."
+    )
+    tags: Optional[list[str]] = Field(
+        None, description="Replace tags list. Omit to leave unchanged."
+    )
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        # Preserve the literal "none" so the PATCH handler can clear the column.
+        raw = str(value).strip().lower()
+        if raw in ("", HUB_STATUS_NONE):
+            return HUB_STATUS_NONE
+        return normalize_hub_status(raw)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: Optional[list[str]]) -> Optional[list[str]]:
+        if value is None:
+            return None
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for tag in value:
+            t = " ".join(str(tag).split()).strip()
+            if not t:
+                continue
+            key = t.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(t[:40])
+            if len(cleaned) >= 12:
+                break
+        return cleaned
+
+    @field_validator("notes")
+    @classmethod
+    def _clamp_notes(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return str(value)[:4000]
+

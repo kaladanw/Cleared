@@ -13,6 +13,19 @@
   const IMG_URL_RE = /https?:\/\/[^\s"'<>]+?\.(?:jpe?g|png|webp)(?:\?[^\s"'<>]*)?/gi;
 
   function extractListingFromDocument(doc) {
+    const listing = extractListingCore(doc);
+    // Seller is best-effort and never blocks a check (null when not found).
+    let seller = null;
+    try {
+      const html = doc.documentElement ? doc.documentElement.outerHTML : "";
+      seller = extractSellerFromHtml(html);
+    } catch (_err) {
+      seller = null;
+    }
+    return { ...listing, seller };
+  }
+
+  function extractListingCore(doc) {
     // Try ld+json (schema.org Product) first — Depop dropped __NEXT_DATA__ in 2026
     const ldScript = doc.querySelector('script[type="application/ld+json"]');
     if (ldScript) {
@@ -22,6 +35,174 @@
     // Fallback: __NEXT_DATA__ (kept for any pages that still embed it)
     const nextScript = doc.querySelector('script#__NEXT_DATA__');
     return extractListingFromNextDataJson(nextScript ? nextScript.textContent : "");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Seller extraction (Depop). DEFENSIVE + UNVERIFIED against live markup:
+  // Depop's HTML is edge-blocked server-side, so these shapes come from
+  // schema.org conventions and historical Depop markup. Every source falls
+  // back to null. Order: ld+json offers.seller -> __NEXT_DATA__ seller fields
+  // -> anchors carrying a seller-ish data-testid. No generic "first profile
+  // link" fallback: the site header can link to the *buyer's* own profile.
+  // Other marketplaces need their own seller extractor.
+  // ---------------------------------------------------------------------------
+
+  const DEPOP_ORIGIN = "https://www.depop.com";
+  const SELLER_USERNAME_RE = /^[a-z0-9._-]{1,64}$/;
+  const SELLER_TESTIDS = new Set([
+    "bio__username",
+    "seller-username",
+    "sellerusername",
+    "seller__username",
+    "shop-username",
+    "product-seller-username",
+  ]);
+  const RESERVED_DEPOP_PATHS = new Set([
+    "products", "product", "search", "category", "categories", "brands", "brand",
+    "sell", "login", "signup", "about", "help", "explore", "settings", "messages",
+    "likes", "saved", "feed", "news", "blog", "careers", "legal", "privacy",
+    "terms", "safety", "app", "download", "us", "uk", "gb", "au", "it", "de", "fr",
+  ]);
+
+  function normalizeUsername(value) {
+    if (typeof value !== "string") return null;
+    const raw = value.trim().replace(/^@/, "").trim().toLowerCase();
+    return SELLER_USERNAME_RE.test(raw) ? raw : null;
+  }
+
+  function usernameFromProfileUrl(href) {
+    if (typeof href !== "string" || !href.trim()) return null;
+    let path;
+    try {
+      const url = new URL(href.trim(), DEPOP_ORIGIN);
+      if (!/(^|\.)depop\.com$/i.test(url.hostname)) return null;
+      path = url.pathname;
+    } catch (_err) {
+      return null;
+    }
+    const segments = path.split("/").filter(Boolean);
+    if (segments.length !== 1) return null;
+    const candidate = decodeURIComponent(segments[0]);
+    if (RESERVED_DEPOP_PATHS.has(candidate.toLowerCase())) return null;
+    return normalizeUsername(candidate);
+  }
+
+  function sellerResult(username) {
+    if (!username) return null;
+    return { username, profile_url: `${DEPOP_ORIGIN}/${username}/` };
+  }
+
+  function sellerFromSchemaNode(node) {
+    if (!node || typeof node !== "object") return null;
+    const fromUrl = usernameFromProfileUrl(node.url || node["@id"] || "");
+    if (fromUrl) return fromUrl;
+    return normalizeUsername(node.alternateName) || normalizeUsername(node.name);
+  }
+
+  function sellerFromLdJsonText(jsonText) {
+    let data;
+    try {
+      data = JSON.parse(jsonText || "null");
+    } catch (_err) {
+      return null;
+    }
+    const nodes = Array.isArray(data) ? data : [data];
+    const expanded = [];
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") continue;
+      expanded.push(node);
+      if (Array.isArray(node["@graph"])) expanded.push(...node["@graph"]);
+    }
+    for (const node of expanded) {
+      if (!node || node["@type"] !== "Product") continue;
+      const offers = Array.isArray(node.offers) ? node.offers : [node.offers];
+      for (const offer of offers) {
+        const username = sellerFromSchemaNode(offer && offer.seller);
+        if (username) return username;
+      }
+      const direct = sellerFromSchemaNode(node.seller);
+      if (direct) return direct;
+    }
+    return null;
+  }
+
+  function sellerFromNextDataText(jsonText) {
+    let data;
+    try {
+      data = JSON.parse(jsonText || "null");
+    } catch (_err) {
+      return null;
+    }
+    let found = null;
+    walk(data, (node) => {
+      if (found) return;
+      if (node.seller && typeof node.seller === "object") {
+        found = normalizeUsername(node.seller.username) ||
+          usernameFromProfileUrl(node.seller.url || "");
+      }
+      if (!found && typeof node.sellerUsername === "string") {
+        found = normalizeUsername(node.sellerUsername);
+      }
+    });
+    return found;
+  }
+
+  function parseAttributes(attrText) {
+    const attrs = {};
+    const re = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+    let match;
+    while ((match = re.exec(attrText))) {
+      attrs[match[1].toLowerCase()] = match[2] !== undefined ? match[2] : match[3];
+    }
+    return attrs;
+  }
+
+  function sellerFromAnchors(html) {
+    const re = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = re.exec(html))) {
+      const attrs = parseAttributes(match[1]);
+      const testid = (attrs["data-testid"] || "").toLowerCase();
+      if (!SELLER_TESTIDS.has(testid)) continue;
+      const fromHref = usernameFromProfileUrl(decodeEntities(attrs.href || ""));
+      if (fromHref) return fromHref;
+      const text = decodeEntities(match[2].replace(/<[^>]*>/g, ""));
+      const fromText = normalizeUsername(text);
+      if (fromText) return fromText;
+    }
+    return null;
+  }
+
+  function decodeEntities(value) {
+    return String(value)
+      .replace(/&amp;/g, "&")
+      .replace(/&#x2F;/gi, "/")
+      .replace(/&#47;/g, "/")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  /**
+   * Best-effort seller identity from page HTML.
+   * Returns { username, profile_url } or null.
+   */
+  function extractSellerFromHtml(html) {
+    if (typeof html !== "string" || !html) return null;
+
+    const ldRe = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let match;
+    while ((match = ldRe.exec(html))) {
+      const username = sellerFromLdJsonText(match[1]);
+      if (username) return sellerResult(username);
+    }
+
+    const nextMatch = /<script\b[^>]*id\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(html);
+    if (nextMatch) {
+      const username = sellerFromNextDataText(nextMatch[1]);
+      if (username) return sellerResult(username);
+    }
+
+    return sellerResult(sellerFromAnchors(html));
   }
 
   function extractListingFromLdJson(jsonText) {
@@ -200,6 +381,7 @@
   const api = {
     extractListingFromDocument,
     extractListingFromNextDataJson,
+    extractSellerFromHtml,
   };
 
   root.ClearedExtractor = api;

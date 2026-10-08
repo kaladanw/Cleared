@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A Cleared listing check shared with you — read-only." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Cleared — Shared check</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/" aria-label="Cleared home">Cleared</a>
+      <nav aria-label="Main navigation">
+        <a href="/">Home</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hub shell" aria-labelledby="share-title">
+        <p class="page-label">Shared check</p>
+        <h1 id="share-title">A listing, <em>cleared.</em></h1>
+        <p class="hub-intro">Someone shared this read-only Cleared report with you. No sign-in needed.</p>
+        <div class="share-root" data-share-root aria-live="polite">
+          <p class="hub-state">Loading…</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <a class="wordmark wordmark-small" href="/">C</a>
+      <p>© <span data-year></span> Cleared</p>
+      <nav aria-label="Footer navigation">
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </footer>
+    <script type="module" src="/src/share.js"></script>
+  </body>
+</html>
