@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
-const pages = ["index.html", "hub.html", "privacy.html", "support.html"];
+const pages = ["index.html", "hub.html", "privacy.html", "support.html", "share.html"];
 
 test("every public page has essential metadata and navigation", async () => {
   for (const page of pages) {
@@ -61,4 +61,45 @@ test("Vite is configured as a multi-page build including hub", async () => {
   assert.equal(existsSync(new URL("../vite.config.js", import.meta.url)), true);
   const config = await readFile(new URL("../vite.config.js", import.meta.url), "utf8");
   assert.match(config, /hub\.html/);
+});
+
+test("hub page has CSV export, seller filter, and seller banner", async () => {
+  const html = await readFile(new URL("../hub.html", import.meta.url), "utf8");
+  assert.match(html, /data-export-csv/);
+  assert.match(html, /name="seller" data-filter-seller/);
+  assert.match(html, /data-seller-banner/);
+  assert.match(html, /data-clear-seller/);
+});
+
+test("hub cards wire Share, Revoke, and clickable seller", async () => {
+  const source = await readFile(new URL("../src/hub.js", import.meta.url), "utf8");
+  assert.match(source, /data-share>/);
+  assert.match(source, /data-revoke/);
+  assert.match(source, /data-seller-link/);
+  assert.match(source, /createShare/);
+  assert.match(source, /revokeShare/);
+  assert.match(source, /exportReportsCsv\(session\.accessToken, filters\)/);
+  assert.match(source, /safeUrl\(row\.listing_url\)/);
+});
+
+test("public share page needs no login and is not indexed", async () => {
+  const html = await readFile(new URL("../share.html", import.meta.url), "utf8");
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
+  assert.match(html, /name="referrer" content="no-referrer"/);
+  assert.match(html, /data-share-root/);
+  assert.match(html, /src="\/src\/share\.js"/);
+  const source = await readFile(new URL("../src/share.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /getSession|accessToken|auth\.js/);
+});
+
+test("Vercel rewrites /r/:token to the share page with noindex", async () => {
+  const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  assert.deepEqual(config.rewrites, [{ source: "/r/:token", destination: "/share.html" }]);
+  const shareHeaders = config.headers.find(({ source }) => source === "/r/(.*)");
+  assert.ok(shareHeaders.headers.some(({ key, value }) => key === "X-Robots-Tag" && /noindex/.test(value)));
+});
+
+test("Vite builds the share page", async () => {
+  const config = await readFile(new URL("../vite.config.js", import.meta.url), "utf8");
+  assert.match(config, /share\.html/);
 });

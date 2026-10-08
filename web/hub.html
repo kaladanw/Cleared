@@ -39,7 +39,7 @@
         <form class="hub-toolbar" data-hub-filters>
           <label class="hub-search">
             <span class="sr-only">Search checks</span>
-            <input type="search" name="q" placeholder="Search name, URL, notes, tags…" data-filter-q />
+            <input type="search" name="q" placeholder="Search name, URL, seller, notes, tags…" data-filter-q />
           </label>
           <label>
             <span>Marketplace</span>
@@ -76,9 +76,15 @@
             <span>To</span>
             <input type="date" name="date_to" data-filter-to />
           </label>
+          <input type="hidden" name="seller" data-filter-seller />
           <button class="button hub-toolbar__apply" type="submit">Apply</button>
+          <button class="button hub-action--ghost hub-toolbar__export" type="button" data-export-csv>Export CSV</button>
         </form>
 
+        <div class="hub-seller-banner" data-seller-banner hidden>
+          <p data-seller-summary></p>
+          <button class="text-button" type="button" data-clear-seller>Clear seller</button>
+        </div>
         <p class="hub-count" data-reports-count></p>
         <div class="hub-list" data-reports-list aria-live="polite"></div>
       </section>

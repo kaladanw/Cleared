@@ -23,6 +23,23 @@ The hub is marketplace-aware. To plug in a new site:
 
 No Vinted extractor ships in this folder yet — Depop is the first marketplace.
 
+## Seller capture
+
+`extractListingFromDocument` also returns `seller: { username, profile_url }`
+(or `null`), sent as `seller` on `POST /api/check-listing` so the hub can group
+checks by seller. `extractSellerFromHtml` tries, in order: ld+json Product
+`offers.seller` / `seller` (url → alternateName → name), `__NEXT_DATA__`
+(`seller.username`, `seller.url`, `sellerUsername`), then seller-specific
+`data-testid` anchors. Reserved Depop paths are rejected, usernames are
+lowercased, and `profile_url` is canonicalized to `https://www.depop.com/{username}/`.
+There is deliberately **no** generic profile-link fallback (the header links to
+the signed-in buyer's own profile).
+
+**Fragile:** Depop serves 403 to datacenter IPs, so these selectors are based on
+fixtures (`tests/fixtures/seller-*.html`), not a live page. If Depop changes its
+markup the extractor returns `null` and the check still succeeds without seller
+data. Verify on a real Depop listing in Chrome and update the fixtures/selectors.
+
 ## Backend selection
 
 The packaged extension defaults to:

@@ -12,6 +12,8 @@
       user_context: userContext || null,
       listing_url: listingUrl || null,
       marketplace: marketplace || DEFAULT_MARKETPLACE,
+      // Best-effort { username, profile_url } from the extractor; null if unknown.
+      seller: listing.seller || null,
     };
   }
 

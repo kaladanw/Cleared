@@ -595,3 +595,46 @@ code { color: var(--green); font: 500 .92em/1.4 var(--mono); overflow-wrap: anyw
   .hub-card__date { grid-area: date; }
   .hub-card__toggle { grid-area: toggle; justify-self: end; }
 }
+
+/* --- Share / seller view / export --- */
+.hub-toolbar__export { align-self: end; }
+
+.hub-seller {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.hub-seller:hover,
+.hub-seller:focus-visible { background: rgba(0, 0, 0, 0.06); }
+.hub-seller-static { font-family: var(--mono, monospace); font-size: 0.8rem; }
+
+.hub-seller-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed currentColor;
+  font-family: var(--mono, monospace);
+  font-size: 0.85rem;
+}
+.hub-seller-banner[hidden] { display: none; }
+.hub-seller-banner p { margin: 0; }
+
+.hub-share-status { min-height: 1.2em; margin: 0.4rem 0 0; font-size: 0.82rem; word-break: break-all; }
+
+.share-root { margin-top: 1.5rem; }
+.share-card { padding: 1.25rem; border: 1px solid currentColor; }
+.share-card__header { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.share-card__title { margin: 0.75rem 0 0.25rem; }
+.share-section { margin-top: 1rem; }
+.share-disclaimer { margin-top: 1.25rem; font-size: 0.8rem; opacity: 0.75; }

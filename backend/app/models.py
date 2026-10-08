@@ -125,6 +125,41 @@ class CheckRequest(BaseModel):
     )
 
 
+SELLER_USERNAME_RE = re.compile(r"^[a-z0-9._-]{1,64}$")
+
+
+def normalize_seller_username(value: str | None) -> str | None:
+    """Lowercase, strip a leading @, and validate. Returns None when unusable."""
+    if value is None:
+        return None
+    raw = str(value).strip().lstrip("@").strip().lower()
+    if not raw or not SELLER_USERNAME_RE.match(raw):
+        return None
+    return raw
+
+
+class SellerInfo(BaseModel):
+    """Seller identity read off the listing page by the extension (best-effort)."""
+
+    username: Optional[str] = None
+    profile_url: Optional[str] = None
+
+    @field_validator("username")
+    @classmethod
+    def _username(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_seller_username(value)
+
+    @field_validator("profile_url")
+    @classmethod
+    def _profile_url(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        url = str(value).strip()
+        if len(url) > 300 or not re.match(r"^https?://[^\s\"'<>]+$", url):
+            return None
+        return url
+
+
 class CheckListingRequest(BaseModel):
     facts: ListingFacts = Field(default_factory=ListingFacts)
     image_urls: list[str] = Field(default_factory=list)
@@ -140,6 +175,12 @@ class CheckListingRequest(BaseModel):
         default=DEFAULT_MARKETPLACE,
         description="Source marketplace slug (depop now; vinted later). "
         "Must match ^[a-z][a-z0-9_-]{0,31}$.",
+    )
+
+    seller: Optional[SellerInfo] = Field(
+        None,
+        description="Seller identity from the listing page ({username, profile_url}); "
+        "null when the extractor could not find it.",
     )
 
     @field_validator("marketplace")

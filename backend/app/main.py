@@ -9,8 +9,16 @@ every server-side page fetch (see claude.mds/phase-0.md). Vision reads the image
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import os
+import re
+import secrets
+import threading
+import time
+from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -18,9 +26,9 @@ from dotenv import load_dotenv
 # Load backend/.env.local so ANTHROPIC_API_KEY is picked up without exporting it.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env.local")
 
-from fastapi import Depends, FastAPI, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from .auth import get_current_user, login, signup
@@ -35,6 +43,7 @@ from .models import (
     HUB_STATUSES,
     normalize_hub_status,
     normalize_marketplace,
+    normalize_seller_username,
 )
 from .supabase_client import get_supabase
 
@@ -189,6 +198,8 @@ async def check_listing(
             report=report,
             marketplace=request.marketplace,
             image_urls=request.image_urls,
+            seller_username=request.seller.username if request.seller else None,
+            seller_url=request.seller.profile_url if request.seller else None,
         )
 
     return report
@@ -201,6 +212,8 @@ def _save_report(
     report: CheckReport,
     marketplace: str = "depop",
     image_urls: list[str] | None = None,
+    seller_username: str | None = None,
+    seller_url: str | None = None,
 ) -> None:
     sb = get_supabase()
     if sb is None:
@@ -220,6 +233,8 @@ def _save_report(
             "verdict": verdict_str,
             "report_json": report.model_dump(mode="json"),
             "image_urls": list(image_urls or []),
+            "seller_username": seller_username,
+            "seller_url": seller_url,
         }).execute()
         log.info(
             "saved report for user=%s marketplace=%s url=%s",
@@ -233,7 +248,8 @@ def _save_report(
 
 _REPORT_SELECT = (
     "id, listing_url, listing_name, marketplace, verdict, checked_at, "
-    "report_json, hub_status, notes, tags, image_urls"
+    "report_json, hub_status, notes, tags, image_urls, "
+    "seller_username, seller_url, share_token, shared_at"
 )
 
 
@@ -256,6 +272,7 @@ def _filter_reports_rows(
                         str(row.get("listing_name") or ""),
                         str(row.get("listing_url") or ""),
                         str(row.get("notes") or ""),
+                        str(row.get("seller_username") or ""),
                         " ".join(row.get("tags") or []),
                         str((row.get("report_json") or {}).get("verdict", {}).get("one_line") or ""),
                     ]
@@ -268,6 +285,89 @@ def _filter_reports_rows(
     if date_to:
         out = [r for r in out if (r.get("checked_at") or "")[:10] <= date_to[:10]]
     return out
+
+
+def _parse_report_filters(
+    *,
+    marketplace: str | None,
+    verdict: str | None,
+    status: str | None,
+    seller: str | None,
+    q: str | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> dict:
+    """Validate hub filters once so JSON and CSV listings stay in lockstep."""
+    filters: dict = {"q": q, "date_from": date_from, "date_to": date_to}
+
+    if marketplace:
+        try:
+            filters["marketplace"] = normalize_marketplace(marketplace)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid marketplace filter. Use a slug like depop or vinted.",
+            )
+
+    if verdict:
+        v = verdict.strip().lower()
+        if v not in {"buy", "negotiate", "skip"}:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid verdict filter. Use buy, negotiate, or skip.",
+            )
+        filters["verdict"] = v
+
+    if status is not None and str(status).strip() != "":
+        try:
+            normalized = normalize_hub_status(status)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid status filter. Use watching, bought, skipped, sold_out, or none.",
+            )
+        if normalized is None:
+            filters["status_is_none"] = True
+        else:
+            filters["status"] = normalized
+
+    if seller is not None and str(seller).strip() != "":
+        username = normalize_seller_username(seller)
+        if username is None:
+            raise HTTPException(status_code=422, detail="Invalid seller filter.")
+        filters["seller"] = username
+
+    return filters
+
+
+def _query_reports(user_id: str, filters: dict) -> list[dict]:
+    """Run the filtered hub query. Returns [] when Supabase is unavailable."""
+    sb = get_supabase()
+    if sb is None:
+        return []
+    try:
+        query = sb.table("reports").select(_REPORT_SELECT).eq("user_id", user_id)
+        if filters.get("marketplace"):
+            query = query.eq("marketplace", filters["marketplace"])
+        if filters.get("verdict"):
+            query = query.eq("verdict", filters["verdict"])
+        if filters.get("status"):
+            query = query.eq("hub_status", filters["status"])
+        if filters.get("status_is_none"):
+            query = query.is_("hub_status", "null")
+        if filters.get("seller"):
+            query = query.eq("seller_username", filters["seller"])
+        result = query.order("checked_at", desc=True).execute()
+        rows = result.data or []
+        return _filter_reports_rows(
+            rows,
+            q=filters.get("q"),
+            date_from=filters.get("date_from"),
+            date_to=filters.get("date_to"),
+        )
+    except Exception as exc:
+        log.warning("report list failed (non-fatal): %r", exc)
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +413,7 @@ async def list_reports(
     marketplace: str | None = None,
     verdict: str | None = None,
     status: str | None = None,
+    seller: str | None = None,
     q: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
@@ -321,67 +422,97 @@ async def list_reports(
     """Reports for the current user, newest first (hub).
 
     Filters: marketplace, verdict (buy|negotiate|skip), status
-    (watching|bought|skipped|sold_out|none), q (text), date_from/date_to (YYYY-MM-DD).
+    (watching|bought|skipped|sold_out|none), seller (username), q (text),
+    date_from/date_to (YYYY-MM-DD).
     """
-    sb = get_supabase()
-    if sb is None:
-        return []
+    filters = _parse_report_filters(
+        marketplace=marketplace, verdict=verdict, status=status, seller=seller,
+        q=q, date_from=date_from, date_to=date_to,
+    )
+    return _query_reports(user["id"], filters)
 
-    marketplace_filter: str | None = None
-    if marketplace:
-        try:
-            marketplace_filter = normalize_marketplace(marketplace)
-        except ValueError:
-            raise HTTPException(
-                status_code=422,
-                detail="Invalid marketplace filter. Use a slug like depop or vinted.",
-            )
 
-    verdict_filter: str | None = None
-    if verdict:
-        v = verdict.strip().lower()
-        if v not in {"buy", "negotiate", "skip"}:
-            raise HTTPException(
-                status_code=422,
-                detail="Invalid verdict filter. Use buy, negotiate, or skip.",
-            )
-        verdict_filter = v
+CSV_COLUMNS = [
+    "checked_at",
+    "marketplace",
+    "listing_name",
+    "listing_url",
+    "verdict",
+    "one_line",
+    "asking_price",
+    "currency",
+    "fairness",
+    "status",
+    "tags",
+    "notes",
+]
 
-    status_filter: str | None = None
-    status_is_none = False
-    if status is not None and str(status).strip() != "":
-        try:
-            normalized = normalize_hub_status(status)
-        except ValueError:
-            raise HTTPException(
-                status_code=422,
-                detail="Invalid status filter. Use watching, bought, skipped, sold_out, or none.",
-            )
-        if normalized is None:
-            status_is_none = True
-        else:
-            status_filter = normalized
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
-    try:
-        query = (
-            sb.table("reports")
-            .select(_REPORT_SELECT)
-            .eq("user_id", user["id"])
-        )
-        if marketplace_filter:
-            query = query.eq("marketplace", marketplace_filter)
-        if verdict_filter:
-            query = query.eq("verdict", verdict_filter)
-        if status_filter:
-            query = query.eq("hub_status", status_filter)
-        if status_is_none:
-            query = query.is_("hub_status", "null")
-        result = query.order("checked_at", desc=True).execute()
-        rows = result.data or []
-        return _filter_reports_rows(rows, q=q, date_from=date_from, date_to=date_to)
-    except Exception as exc:
-        log.warning("report list failed (non-fatal): %r", exc)
-        return []
+
+def _csv_cell(value) -> str:
+    """Stringify a cell and neutralize spreadsheet formula injection."""
+    if value is None:
+        return ""
+    text = str(value)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + text
+    return text
+
+
+def build_reports_csv(rows: list[dict]) -> str:
+    """Render hub rows as CSV with the documented column order."""
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\r\n")
+    writer.writerow(CSV_COLUMNS)
+    for row in rows:
+        report = row.get("report_json") or {}
+        facts = report.get("listing_facts") or {}
+        price = report.get("price_read") or {}
+        verdict = report.get("verdict") or {}
+        asking = facts.get("asking_price")
+        writer.writerow([
+            _csv_cell(row.get("checked_at")),
+            _csv_cell(row.get("marketplace")),
+            _csv_cell(row.get("listing_name")),
+            _csv_cell(row.get("listing_url")),
+            _csv_cell(row.get("verdict") or verdict.get("recommendation")),
+            _csv_cell(verdict.get("one_line")),
+            "" if asking is None else _csv_cell(asking),
+            _csv_cell(facts.get("currency")),
+            _csv_cell(price.get("fairness")),
+            _csv_cell(row.get("hub_status")),
+            _csv_cell("; ".join(row.get("tags") or [])),
+            _csv_cell(row.get("notes")),
+        ])
+    return buf.getvalue()
+
+
+@app.get("/api/reports.csv")
+async def export_reports_csv(
+    marketplace: str | None = None,
+    verdict: str | None = None,
+    status: str | None = None,
+    seller: str | None = None,
+    q: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    user: dict = Depends(get_current_user),
+) -> Response:
+    """CSV export of the hub list, honoring the same filters as GET /api/reports."""
+    filters = _parse_report_filters(
+        marketplace=marketplace, verdict=verdict, status=status, seller=seller,
+        q=q, date_from=date_from, date_to=date_to,
+    )
+    rows = _query_reports(user["id"], filters)
+    return Response(
+        content=build_reports_csv(rows),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="cleared-checks.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.patch("/api/reports/{report_id}")
@@ -502,9 +633,211 @@ async def recheck_report(
             report=report,
             marketplace=row.get("marketplace") or "depop",
             image_urls=list(image_urls),
+            seller_username=row.get("seller_username"),
+            seller_url=row.get("seller_url"),
         )
 
     return report
+
+
+# ---------------------------------------------------------------------------
+# Share links (owner creates/revokes; anyone with the token can read a
+# sanitized copy). Tokens are 32 bytes of urlsafe randomness.
+# ---------------------------------------------------------------------------
+
+SHARE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
+SHARE_RATE_LIMIT = int(os.environ.get("CLEARED_SHARE_RATE_LIMIT", "60"))  # req/window/IP
+SHARE_RATE_WINDOW_SECONDS = 60.0
+
+_share_hits: dict[str, deque] = {}
+_share_lock = threading.Lock()
+
+
+def _reset_share_rate_limit() -> None:
+    """Test helper: clear the in-memory rate-limit buckets."""
+    with _share_lock:
+        _share_hits.clear()
+
+
+def _client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip() or "unknown"
+    return request.client.host if request.client else "unknown"
+
+
+def _share_rate_limited(key: str) -> bool:
+    """Sliding-window limiter per client. In-memory: per-process, best-effort."""
+    now = time.monotonic()
+    with _share_lock:
+        if len(_share_hits) > 10_000:  # bound memory under abuse
+            _share_hits.clear()
+        bucket = _share_hits.setdefault(key, deque())
+        while bucket and now - bucket[0] > SHARE_RATE_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(bucket) >= SHARE_RATE_LIMIT:
+            return True
+        bucket.append(now)
+        return False
+
+
+def _new_share_token() -> str:
+    return secrets.token_urlsafe(32)  # 43 chars
+
+
+def _share_payload(row: dict) -> dict:
+    """Sanitized public projection of a report row.
+
+    Excludes: user_id, notes, tags, hub_status, image_urls, share metadata, and
+    the buyer's private context (verdict.user_context).
+    """
+    report = row.get("report_json") or {}
+    verdict = dict(report.get("verdict") or {})
+    verdict.pop("user_context", None)
+    return {
+        "listing_name": row.get("listing_name") or "",
+        "listing_url": row.get("listing_url") or "",
+        "marketplace": row.get("marketplace") or "depop",
+        "verdict": row.get("verdict") or verdict.get("recommendation"),
+        "checked_at": row.get("checked_at"),
+        "seller_username": row.get("seller_username"),
+        "report": {
+            "listing_facts": report.get("listing_facts") or {},
+            "price_read": report.get("price_read") or {},
+            "listing_trust": report.get("listing_trust") or {},
+            "auth_flag": report.get("auth_flag") or {},
+            "verdict": verdict,
+        },
+    }
+
+
+def _load_owned_report(sb, report_id: str, user_id: str, columns: str) -> dict:
+    try:
+        result = (
+            sb.table("reports")
+            .select(columns)
+            .eq("id", report_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        log.warning("owned report load failed: %r", exc)
+        raise HTTPException(status_code=500, detail="Could not load report.") from exc
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    return rows[0]
+
+
+@app.post("/api/reports/{report_id}/share")
+async def create_share(
+    report_id: str,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Create (or return the existing) read-only share token for an owned report."""
+    sb = get_supabase()
+    if sb is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured.")
+
+    row = _load_owned_report(sb, report_id, user["id"], "id, share_token, shared_at")
+    token = row.get("share_token")
+    shared_at = row.get("shared_at")
+    if not token:
+        token = _new_share_token()
+        try:
+            result = (
+                sb.table("reports")
+                .update({
+                    "share_token": token,
+                    "shared_at": datetime.now(timezone.utc).isoformat(),
+                })
+                .eq("id", report_id)
+                .eq("user_id", user["id"])
+                .select("share_token, shared_at")
+                .execute()
+            )
+        except Exception as exc:
+            log.warning("share create failed: %r", exc)
+            raise HTTPException(status_code=500, detail="Could not create share link.") from exc
+        updated = (result.data or [{}])[0]
+        shared_at = updated.get("shared_at")
+    return {"token": token, "path": f"/r/{token}", "shared_at": shared_at}
+
+
+@app.delete("/api/reports/{report_id}/share")
+async def revoke_share(
+    report_id: str,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Revoke the share link for an owned report. Idempotent."""
+    sb = get_supabase()
+    if sb is None:
+        raise HTTPException(status_code=503, detail="Supabase is not configured.")
+
+    _load_owned_report(sb, report_id, user["id"], "id")
+    try:
+        (
+            sb.table("reports")
+            .update({"share_token": None, "shared_at": None})
+            .eq("id", report_id)
+            .eq("user_id", user["id"])
+            .execute()
+        )
+    except Exception as exc:
+        log.warning("share revoke failed: %r", exc)
+        raise HTTPException(status_code=500, detail="Could not revoke share link.") from exc
+    return {"revoked": True}
+
+
+_PUBLIC_HEADERS = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"}
+
+
+@app.get("/api/shared/{token}")
+async def get_shared_report(token: str, request: Request) -> JSONResponse:
+    """Public, unauthenticated read of a shared report (sanitized).
+
+    404 for malformed, unknown, or revoked tokens; 429 when a client exceeds the
+    per-IP rate limit. CORS follows the global middleware like other endpoints.
+    """
+    if _share_rate_limited(_client_key(request)):
+        return JSONResponse(
+            {"detail": "Too many requests. Try again in a minute."},
+            status_code=429,
+            headers={**_PUBLIC_HEADERS, "Retry-After": "60"},
+        )
+
+    not_found = JSONResponse(
+        {"detail": "This shared report doesn't exist or was revoked."},
+        status_code=404,
+        headers=_PUBLIC_HEADERS,
+    )
+    if not SHARE_TOKEN_RE.match(token or ""):
+        return not_found
+
+    sb = get_supabase()
+    if sb is None:
+        return not_found
+
+    try:
+        result = (
+            sb.table("reports")
+            .select(
+                "listing_name, listing_url, marketplace, verdict, checked_at, "
+                "report_json, seller_username, share_token"
+            )
+            .eq("share_token", token)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        log.warning("shared report lookup failed: %r", exc)
+        return not_found
+
+    rows = result.data or []
+    if not rows or rows[0].get("share_token") != token:
+        return not_found
+    return JSONResponse(_share_payload(rows[0]), headers=_PUBLIC_HEADERS)
 
 
 # ---------------------------------------------------------------------------

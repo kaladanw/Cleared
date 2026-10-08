@@ -17,6 +17,10 @@ create table if not exists reports (
   notes       text not null default '',
   tags        text[] not null default '{}',
   image_urls  jsonb not null default '[]'::jsonb,
+  share_token text,
+  shared_at   timestamptz,
+  seller_username text,
+  seller_url  text,
   checked_at  timestamptz default now(),
   constraint reports_hub_status_check check (
     hub_status is null
@@ -42,7 +46,18 @@ create index if not exists reports_user_status_checked
 create index if not exists reports_user_verdict_checked
   on reports (user_id, verdict, checked_at desc);
 
+-- Share links: unguessable token, unique when set (NULL = not shared / revoked).
+create unique index if not exists reports_share_token_key
+  on reports (share_token)
+  where share_token is not null;
+
+-- Seller view: all checks against one seller on one marketplace.
+create index if not exists reports_user_marketplace_seller
+  on reports (user_id, marketplace, seller_username);
+
 -- Row-level security: each user sees only their own reports.
+-- Public share reads go through the backend's service-role client (sanitized),
+-- so no anon policy is needed or wanted here.
 alter table reports enable row level security;
 
 -- Drop and recreate so this script is idempotent.

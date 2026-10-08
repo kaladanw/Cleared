@@ -55,7 +55,43 @@ Statuses: watching / bought / skipped / sold_out (plus unset). Empty state
 points users at the Chrome extension on Depop. Install steps stay on the page.
 
 Depop is the first marketplace; filters are ready for Vinted later once an
-extractor ships. Apply both Supabase migrations under `backend/supabase/migrations/`.
+extractor ships. Apply all Supabase migrations under `backend/supabase/migrations/`
+(in filename order).
+
+### Seller view
+
+Checks made with an extension build that captures the seller show a clickable
+`@username` chip. Clicking it sets the `seller` filter (`GET /api/reports?seller=`)
+and shows a banner with the check count and verdict mix (buy / negotiate / skip)
+for that seller, plus **Clear seller**. Older checks have no seller and show no
+chip. Text search (`q`) also matches the seller username.
+
+### CSV export
+
+**Export CSV** downloads `GET /api/reports.csv` using the filters currently
+applied to the list (including seller). The request carries the Bearer token, so
+the hub fetches it and saves via an object URL. Columns, in order:
+`checked_at, marketplace, listing_name, listing_url, verdict, one_line,
+asking_price, currency, fairness, status, tags, notes` (tags joined with `; `).
+Cells that start with `= + - @` (or tab/CR) are prefixed with `'` to neutralize
+spreadsheet formula injection.
+
+### Share a report (`/r/{token}`)
+
+On an expanded card, **Share** mints a read-only link
+(`POST /api/reports/{id}/share`, owner-only, idempotent) and copies
+`https://<site>/r/{token}`; **Revoke link** (`DELETE /api/reports/{id}/share`)
+nulls the token so the old link 404s. Sharing again mints a new token.
+
+`/r/{token}` is rewritten by `vercel.json` to `share.html` (Vite dev mirrors the
+rewrite; `share.html?t={token}` also works). The page needs no login and calls the
+public `GET /api/shared/{token}`, which returns a sanitized report: listing
+name/URL, marketplace, verdict, checked_at, seller username, and report highlights
+(facts, price read, trust, auth flag, verdict). It never includes user id/email,
+notes, tags, hub status, or the buyer's private `user_context`. The endpoint is
+per-IP rate-limited (`CLEARED_SHARE_RATE_LIMIT`, default 60/min), sends
+`Cache-Control: no-store` and `X-Robots-Tag: noindex`, and the page is `noindex`
+with `no-referrer`. Tokens are 43-char `secrets.token_urlsafe(32)` values.
 
 ## Domain and launch requirements
 
@@ -66,14 +102,15 @@ extractor ships. Apply both Supabase migrations under `backend/supabase/migratio
 4. Replace the support placeholder with a monitored address or form.
 5. Finalize the privacy policy's report retention period and verify the production terms and retention settings for hosting, auth/database, and AI processors.
 6. Lock backend CORS to the reviewed Vercel production/preview origins when those hostnames are final: set `CLEARED_WEB_ORIGINS` (comma-separated) on the Railway backend to the Vercel prod domain and/or preview domain — see `backend/.env.example`.
-7. Apply the Supabase migration `backend/supabase/migrations/20261006_add_marketplace.sql` so `reports.marketplace` exists in production.
+7. Apply the Supabase migrations in `backend/supabase/migrations/` in order (`20261006_add_marketplace.sql`, `20261006_hub_triage.sql`, `20261007_share_seller.sql`) so the hub, triage, share, and seller columns exist in production.
 8. Verify signup → `/hub`, `/privacy`, and `/support` on the production domain, including mobile layout, TLS, metadata, keyboard navigation, and a real support/deletion request.
 
 ## Still deferred
 
 Universal Links, Cleared-owned check-ID routing, shared login between web and
-extension, iOS `/check` persistence into the hub, share/export, price monitors,
-and additional marketplace extractors (Vinted) are out of scope for this slice.
+extension, iOS `/check` persistence into the hub, price monitors, share-link
+expiry/analytics, seller backfill for older checks, and additional marketplace
+extractors (Vinted) are out of scope for this slice.
 
 ## Extension/backend handoff
 

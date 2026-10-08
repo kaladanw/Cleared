@@ -1,5 +1,16 @@
 import { clearSession, getSession } from "./auth.js";
-import { fetchReports, recheckReport, updateReport } from "./api.js";
+import {
+  createShare,
+  exportReportsCsv,
+  fetchReports,
+  REPORT_FILTER_KEYS,
+  recheckReport,
+  revokeShare,
+  shareUrl,
+  updateReport,
+} from "./api.js";
+import { esc, formatDate, listHtml, money, range, safeUrl, verdictPillClass } from "./format.js";
+import { sellerSummaryText, summarizeSeller } from "./seller-summary.js";
 
 document.querySelectorAll("[data-year]").forEach((node) => {
   node.textContent = new Date().getFullYear();
@@ -40,7 +51,61 @@ function bootHub(session) {
     loadReports();
   });
 
+  function setSellerFilter(username) {
+    const input = form?.querySelector("[data-filter-seller]");
+    if (input) input.value = username || "";
+    filters = readFilters(form);
+    loadReports();
+  }
+
+  document.querySelector("[data-clear-seller]")?.addEventListener("click", () => setSellerFilter(""));
+
+  document.querySelector("[data-export-csv]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Exporting…";
+    try {
+      // Exports the *applied* filters (what the list is showing), not unsaved form edits.
+      const { blob, filename } = await exportReportsCsv(session.accessToken, filters);
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+    } catch (error) {
+      if (handleUnauthorized(error)) return;
+      alert(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = "Export CSV";
+    }
+  });
+
   loadReports();
+
+  function handleUnauthorized(error) {
+    if (error?.code !== "unauthorized") return false;
+    clearSession();
+    window.location.replace("/");
+    return true;
+  }
+
+  function renderSellerBanner(reports) {
+    const banner = document.querySelector("[data-seller-banner]");
+    if (!banner) return;
+    if (!filters.seller) {
+      banner.hidden = true;
+      return;
+    }
+    banner.hidden = false;
+    banner.querySelector("[data-seller-summary]").textContent = sellerSummaryText(
+      filters.seller,
+      summarizeSeller(reports),
+    );
+  }
 
   async function loadReports() {
     const list = document.querySelector("[data-reports-list]");
@@ -52,6 +117,12 @@ function bootHub(session) {
 
     try {
       const reports = await fetchReports(session.accessToken, filters);
+      renderSellerBanner(reports);
+      if (!reports.length && Object.keys(filters).length) {
+        countEl.textContent = "0 checks";
+        list.innerHTML = '<p class="hub-state" data-empty-filtered>No checks match these filters.</p>';
+        return;
+      }
       if (!reports.length) {
         countEl.textContent = "0 checks";
         list.innerHTML = `
@@ -139,6 +210,61 @@ function bootHub(session) {
       });
     });
 
+    list.querySelectorAll("[data-seller-link]").forEach((button) => {
+      button.addEventListener("click", () => setSellerFilter(button.dataset.sellerLink));
+    });
+
+    list.querySelectorAll("[data-share]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const card = button.closest(".hub-card");
+        const status = card.querySelector("[data-share-status]");
+        button.disabled = true;
+        try {
+          let token = card.dataset.shareToken;
+          if (!token) {
+            const created = await createShare(session.accessToken, card.dataset.reportId);
+            token = created.token;
+            card.dataset.shareToken = token;
+          }
+          const link = shareUrl(token);
+          card.querySelector("[data-revoke]").hidden = false;
+          button.textContent = "Copy share link";
+          try {
+            await navigator.clipboard.writeText(link);
+            status.textContent = "Link copied. Anyone with it can view this report (no notes, tags, or status).";
+          } catch {
+            status.textContent = `Share link: ${link}`;
+          }
+        } catch (error) {
+          if (handleUnauthorized(error)) return;
+          status.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+
+    list.querySelectorAll("[data-revoke]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const card = button.closest(".hub-card");
+        const status = card.querySelector("[data-share-status]");
+        if (!confirm("Revoke this share link? Anyone who has it will lose access.")) return;
+        button.disabled = true;
+        try {
+          await revokeShare(session.accessToken, card.dataset.reportId);
+          delete card.dataset.shareToken;
+          button.hidden = true;
+          card.querySelector("[data-share]").textContent = "Share";
+          status.textContent = "Share link revoked.";
+        } catch (error) {
+          if (handleUnauthorized(error)) return;
+          status.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+
     list.querySelectorAll("[data-recheck]").forEach((button) => {
       button.addEventListener("click", async () => {
         const card = button.closest(".hub-card");
@@ -176,7 +302,7 @@ function readFilters(form) {
   if (!form) return {};
   const data = new FormData(form);
   const filters = {};
-  for (const key of ["marketplace", "verdict", "status", "q", "date_from", "date_to"]) {
+  for (const key of REPORT_FILTER_KEYS) {
     const value = String(data.get(key) || "").trim();
     if (value) filters[key] = value;
   }
@@ -217,18 +343,11 @@ function renderCard(row) {
   const trust = report.listing_trust || {};
   const verdict = report.verdict || {};
   const rec = row.verdict || verdict.recommendation || "";
-  const pillClass =
-    rec === "buy"
-      ? "hub-pill hub-pill--buy"
-      : rec === "negotiate"
-        ? "hub-pill hub-pill--negotiate"
-        : rec === "skip"
-          ? "hub-pill hub-pill--skip"
-          : "hub-pill";
+  const pillClass = verdictPillClass(rec);
   const marketplace = esc(row.marketplace || "depop");
   const name = esc(row.listing_name || "Unnamed listing");
   const date = formatDate(row.checked_at);
-  const url = esc(row.listing_url || "#");
+  const url = esc(safeUrl(row.listing_url));
   const oneLine = esc(verdict.one_line || "");
   const fairness = esc(price.fairness || "");
   const trustItems = [...(trust.missing_info || []), ...(trust.concerns || [])];
@@ -241,9 +360,11 @@ function renderCard(row) {
   const tagsValue = esc((row.tags || []).join(", "));
   const hasImages = Array.isArray(row.image_urls) && row.image_urls.length > 0;
   const id = esc(row.id || "");
+  const seller = row.seller_username || "";
+  const shareToken = esc(row.share_token || "");
 
   return `
-    <article class="hub-card" data-report-id="${id}" data-listing-url="${url}" data-has-images="${hasImages ? "1" : "0"}">
+    <article class="hub-card" data-report-id="${id}" data-listing-url="${url}" data-has-images="${hasImages ? "1" : "0"}"${shareToken ? ` data-share-token="${shareToken}"` : ""}>
       <div class="hub-card__summary">
         <span class="${pillClass}">${esc(rec || "check")}</span>
         <span class="hub-marketplace">${marketplace}</span>
@@ -252,6 +373,7 @@ function renderCard(row) {
           <span class="hub-card__name"><a href="${url}" target="_blank" rel="noreferrer noopener">${name}</a></span>
           ${oneLine ? `<p class="hub-card__blurb">${oneLine}</p>` : ""}
           ${dealLine ? `<p class="hub-card__meta">${esc(dealLine)}</p>` : ""}
+          ${seller ? `<button class="hub-seller" type="button" data-seller-link="${esc(seller)}" title="Show every check for this seller">@${esc(seller)}</button>` : ""}
         </div>
         <span class="hub-card__date">${date}</span>
         <span class="hub-card__toggle">Details</span>
@@ -260,7 +382,10 @@ function renderCard(row) {
         <div class="hub-actions">
           <a class="button hub-action" href="${url}" target="_blank" rel="noreferrer noopener">Open listing</a>
           <button class="button hub-action hub-action--ghost" type="button" data-recheck>${hasImages ? "Recheck" : "Recheck in extension"}</button>
+          <button class="button hub-action hub-action--ghost" type="button" data-share>${shareToken ? "Copy share link" : "Share"}</button>
+          <button class="button hub-action hub-action--ghost" type="button" data-revoke ${shareToken ? "" : "hidden"}>Revoke link</button>
         </div>
+        <p class="hub-share-status" data-share-status role="status" aria-live="polite"></p>
         <div class="hub-detail-grid">
           <div>
             <h3>Price</h3>
@@ -298,43 +423,4 @@ function renderCard(row) {
         </div>
       </div>
     </article>`;
-}
-
-function listHtml(items) {
-  return `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
-}
-
-function money(value) {
-  return Number.isFinite(value) ? `$${Math.round(value)}` : "—";
-}
-
-function range(low, high) {
-  if (Number.isFinite(low) && Number.isFinite(high)) {
-    return `$${Math.round(low)}–$${Math.round(high)}`;
-  }
-  if (Number.isFinite(low)) return `$${Math.round(low)}+`;
-  if (Number.isFinite(high)) return `up to $${Math.round(high)}`;
-  return "—";
-}
-
-function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return String(iso).slice(0, 10);
-  }
-}
-
-function esc(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
