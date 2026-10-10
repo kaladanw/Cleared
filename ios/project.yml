@@ -72,7 +72,12 @@ targets:
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
             NSExtensionActivationRule:
+              # Screenshots from Photos (unchanged).
               NSExtensionActivationSupportsImageWithMaxCount: 4
+              # Depop's Share button sends text containing a depop.app.link
+              # short link; Safari/Chrome send the product page URL.
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kaladanw.cleared.share
