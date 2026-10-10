@@ -8,7 +8,10 @@ contains the shared backend token.
 ## Hard gates before external TestFlight
 
 - [ ] Replace `CLEARED_SHARED_TOKEN` with user/device authentication and
-  server-side authorization plus per-user/device rate and spend limits. An
+  server-side authorization plus per-user/device rate and spend limits.
+  iOS now signs in with the shared Supabase account (Bearer on `/check`,
+  `/check-listing`, `/api/reports`); the shared token is only a fallback for
+  signed-out screenshot checks and should be left empty in distributed builds. An
   xcconfig prevents a secret entering git; it does **not** prevent extraction
   from an installed app or extension. This requires a separate backend design
   decision and is intentionally not implemented here.
@@ -26,6 +29,12 @@ Certificates, Identifiers & Profiles / Xcode, register and verify:
 - host App ID: `com.kaladanw.cleared`
 - extension App ID: `com.kaladanw.cleared.share` (a child of the host ID)
 - App Group: `group.com.kaladanw.cleared`, enabled for both App IDs
+- Keychain Sharing: both targets carry `keychain-access-groups` =
+  `$(AppIdentifierPrefix)com.kaladanw.cleared.shared` (project.yml). The app
+  and the Share Extension share ONE Keychain item for the Supabase session, so
+  a `DEVELOPMENT_TEAM` must be set: unsigned builds don't expand
+  `$(AppIdentifierPrefix)`, and the app then refuses to sign in rather than
+  writing a session the extension can't read.
 - an App Store distribution profile/certificate for both targets (or Xcode
   managed equivalents)
 

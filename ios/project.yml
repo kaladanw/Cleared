@@ -38,6 +38,11 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.kaladanw.cleared
+        # ONE shared Keychain item holds the Supabase session for the app AND
+        # the Share Extension (refresh tokens rotate; two copies would revoke
+        # the session). Must match ClearedKeychainAccessGroup below.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.kaladanw.cleared.shared
     info:
       path: Cleared/Info.plist
       properties:
@@ -45,6 +50,7 @@ targets:
         UILaunchScreen: {}
         ClearedBackendURL: $(CLEARED_BACKEND_URL)
         ClearedSharedToken: $(CLEARED_SHARED_TOKEN)
+        ClearedKeychainAccessGroup: $(AppIdentifierPrefix)com.kaladanw.cleared.shared
     settings:
       base:
         # Extension IDs must be children of the app ID; set both explicitly.
@@ -61,12 +67,18 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.kaladanw.cleared
+        # ONE shared Keychain item holds the Supabase session for the app AND
+        # the Share Extension (refresh tokens rotate; two copies would revoke
+        # the session). Must match ClearedKeychainAccessGroup below.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.kaladanw.cleared.shared
     info:
       path: ClearedShare/Info.plist
       properties:
         CFBundleDisplayName: Cleared
         ClearedBackendURL: $(CLEARED_BACKEND_URL)
         ClearedSharedToken: $(CLEARED_SHARED_TOKEN)
+        ClearedKeychainAccessGroup: $(AppIdentifierPrefix)com.kaladanw.cleared.shared
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController

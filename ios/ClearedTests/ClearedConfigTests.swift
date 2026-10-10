@@ -7,5 +7,8 @@ final class ClearedConfigTests: XCTestCase {
         XCTAssertNil(ClearedConfig.backendURL)
         XCTAssertNil(ClearedConfig.sharedToken)
         XCTAssertFalse(ClearedConfig.isConfigured)
+        // No team-prefixed group either: the auth wiring must refuse rather
+        // than write an app-private Keychain item the extension can't read.
+        XCTAssertNil(ClearedConfig.keychainAccessGroup)
     }
 }

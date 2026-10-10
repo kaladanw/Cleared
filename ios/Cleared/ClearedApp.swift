@@ -1,75 +1,44 @@
 import SwiftUI
 
-/// The host app is deliberately a shell (see claude.mds/phase-3.md): it explains
-/// the share-sheet flow and shows config state. All real interaction happens in
-/// the ClearedShare extension.
+/// Host app: sign in once (the Share Extension reuses the same Keychain
+/// session), and browse the account's check history. The checking itself
+/// still happens in the ClearedShare extension.
 @main
 struct ClearedApp: App {
+    @StateObject private var model = AppModel()
+
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
+                .environmentObject(model)
         }
     }
 }
 
-struct HomeView: View {
-    @State private var lastReport: CheckReport?
+struct RootView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("How to use Cleared") {
-                    Label("Screenshot a Depop listing", systemImage: "camera.viewfinder")
-                    Label("Share the screenshot(s)", systemImage: "square.and.arrow.up")
-                    Label("Pick Cleared in the share sheet", systemImage: "checkmark.seal")
-                }
-                Section("Backend") {
-                    if ClearedConfig.isConfigured {
-                        Label(
-                            ClearedConfig.backendURL?.host() ?? "configured",
-                            systemImage: "network"
-                        )
-                    } else {
-                        Label(
-                            "Not configured — fill in ios/Secrets.xcconfig and rebuild",
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .foregroundStyle(.orange)
-                    }
-                }
-                if let lastReport {
-                    Section("Recent") {
-                        NavigationLink {
-                            if let error = lastReport.error {
-                                ContentUnavailableView(
-                                    "Check unavailable",
-                                    systemImage: "exclamationmark.triangle",
-                                    description: Text(error)
-                                )
-                            } else {
-                                CareLabelView(report: lastReport)
-                                    .navigationTitle("Last check")
-                                    .navigationBarTitleDisplayMode(.inline)
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(lastReport.verdict.recommendation?.rawValue.capitalized ?? "Last check")
-                                    .font(.headline)
-                                Text(lastReport.verdict.oneLine)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-                        }
-                    }
-                }
+            switch model.authState {
+            case .signedIn:
+                HistoryView()
+            case .signedOut:
+                SignInView()
             }
-            .navigationTitle("Cleared")
-            .onAppear { lastReport = LastReportStore.load() }
+        }
+        .task { await model.syncHistory() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            // The extension may have refreshed, signed out, or added a check.
+            model.reloadSession()
+            Task { await model.syncHistory() }
+        }
+        .onChange(of: model.authState) { _, state in
+            if case .signedIn = state {
+                Task { await model.syncHistory() }
+            }
         }
     }
-}
-
-#Preview {
-    HomeView()
 }

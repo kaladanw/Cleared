@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>ClearedBackendURL</key>
 	<string>$(CLEARED_BACKEND_URL)</string>
+	<key>ClearedKeychainAccessGroup</key>
+	<string>$(AppIdentifierPrefix)com.kaladanw.cleared.shared</string>
 	<key>ClearedSharedToken</key>
 	<string>$(CLEARED_SHARED_TOKEN)</string>
 	<key>NSExtension</key>

@@ -10,6 +10,11 @@ import UIKit
 /// - **Screenshots** (Photos): `POST /check` (multipart), as before.
 /// If the link path fails and screenshots were shared too, fall back to them;
 /// if there are no screenshots, say so honestly and ask for them.
+///
+/// Auth: the extension reuses the app's session from the shared Keychain item
+/// (`SessionManager`); it never shows a login form. No session → "Open
+/// Cleared to sign in", except a dev build with the legacy shared token can
+/// still run an unsaved screenshot check.
 @MainActor
 final class CheckSession: ObservableObject {
     enum Phase {
@@ -19,6 +24,8 @@ final class CheckSession: ObservableObject {
         case checking
         case finished(CheckReport)
         case failed(String)
+        /// No shared session (never signed in, or the server ended it).
+        case signInRequired
     }
 
     @Published private(set) var phase: Phase = .ingesting
@@ -33,23 +40,46 @@ final class CheckSession: ObservableObject {
     /// screenshot fallback so the report still lands on the right listing.
     private var canonicalListingURL: URL?
 
-    private static let appGroup = "group.com.kaladanw.cleared"
     static let screenshotsAsk =
         "Take screenshots of the listing (photos, price, and description) and share them to Cleared instead."
 
-    /// TODO(iOS auth PR): pass the shared-Keychain session provider here.
-    /// Until then there is no Bearer token, so `/check-listing` reports
-    /// `.signInRequired` and link shares fall back to screenshots.
-    private let accessTokenProvider: AccessTokenProvider? = nil
+    /// The app's session, shared through the Keychain access group and
+    /// refreshed under the App Group file lock. nil if this build can't share
+    /// a session (missing entitlement or backend URL); see `setupError`.
+    private let sessions: SessionManager?
+    private let setupError: String?
 
-    private lazy var fetcher = DepopListingFetcher(
-        cacheDirectory: FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup)
-    )
+    private lazy var fetcher = DepopListingFetcher(cacheDirectory: ClearedConfig.appGroupContainer)
+
+    init() {
+        do {
+            sessions = try ClearedAuth.makeSessionManager()
+            setupError = nil
+        } catch {
+            sessions = nil
+            setupError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private var isSignedIn: Bool { sessions?.currentSession() != nil }
 
     func ingest(from context: NSExtensionContext?) async {
         let payload = await ShareIngest.load(from: context)
         images = payload.images
+
+        if !isSignedIn {
+            // Legacy unsaved screenshot check, only in builds that still carry
+            // the shared token. Link shares need Bearer (/check-listing).
+            guard !images.isEmpty, ClearedConfig.sharedToken != nil else {
+                // A build that can't share a session at all gets the real
+                // reason, not a sign-in prompt the app couldn't satisfy.
+                phase = setupError.map(Phase.failed) ?? .signInRequired
+                return
+            }
+            listingNotice = "You're not signed in, so this check won't be saved to your history. Open Cleared to sign in."
+            phase = .composing
+            return
+        }
 
         guard let link = payload.depopLink else {
             phase = images.isEmpty
@@ -79,8 +109,8 @@ final class CheckSession: ObservableObject {
     }
 
     func runCheck() async {
-        guard let client = ClearedAPIClient.fromConfig(accessTokenProvider: accessTokenProvider) else {
-            phase = .failed(ClearedAPIError.notConfigured.errorDescription ?? "Not configured.")
+        guard let client = ClearedAPIClient.fromConfig(accessTokenProvider: sessions) else {
+            phase = .failed(setupError ?? ClearedAPIError.notConfigured.errorDescription ?? "Not configured.")
             return
         }
         phase = .checking
@@ -94,14 +124,14 @@ final class CheckSession: ObservableObject {
                 )
                 finish(with: report)
                 return
+            } catch ClearedAPIError.signInRequired {
+                // Signed out by the server mid-flow (refresh 401 / second 401).
+                phase = .signInRequired
+                return
             } catch {
                 let reason = message(for: error)
                 guard !images.isEmpty else {
-                    phase = .failed(
-                        error as? ClearedAPIError == .signInRequired
-                            ? "\(reason)\n\n\(Self.screenshotsAsk)"
-                            : reason
-                    )
+                    phase = .failed(reason)
                     return
                 }
                 // Fall through to the screenshot path with what the user shared.
@@ -128,6 +158,8 @@ final class CheckSession: ObservableObject {
                 marketplace: canonicalListingURL == nil ? nil : "depop"
             )
             finish(with: report)
+        } catch ClearedAPIError.signInRequired {
+            phase = .signInRequired
         } catch {
             phase = .failed(message(for: error))
         }
@@ -136,13 +168,18 @@ final class CheckSession: ObservableObject {
     private func finish(with report: CheckReport) {
         // A report is useful in the host app after the share sheet closes.
         // Persistence failure must never hide a valid result from the user.
-        try? LastReportStore.save(report)
+        // The app replaces this from GET /api/reports next time it opens.
+        try? ReportHistoryStore.shared()?.record(report, listingURL: canonicalListingURL)
         phase = .finished(report)
     }
 
     private func message(for error: Error) -> String {
         if let apiError = error as? ClearedAPIError {
             return apiError.errorDescription ?? "Something went wrong."
+        }
+        // AuthError (refresh 503 / offline) and FileLock errors carry their own text.
+        if let described = (error as? LocalizedError)?.errorDescription {
+            return described
         }
         return "Network problem: \(error.localizedDescription)"
     }
