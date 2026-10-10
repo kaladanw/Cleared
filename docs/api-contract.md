@@ -112,8 +112,8 @@ These are still **HTTP 200**.
 ### Check response (`CheckResponse`) = `CheckReport` + additive fields
 | Field | Type | Meaning |
 |---|---|---|
-| `report_id` | `string\|null` | ID of the saved row (see `GET /api/reports`). `null` when not saved: shared-secret `/check`, error reports, `/check-listing` without `listing_url`, or a save failure. |
-| `images_stored` | `int` | Screenshots persisted privately for this report (authenticated `/check` only). `> 0` means recheck works. |
+| `report_id` | `string\|null` | ID of the saved row (see `GET /api/reports`). `null` when not saved: shared-secret `/check`, `/check` error reports, `/check-listing` without `listing_url`, or a save failure. |
+| `images_stored` | `int` | Photos copied into private storage for this report: screenshots from a Bearer `/check`, or CDN photos from a saved `/check-listing`. `> 0` means recheck no longer depends on the CDN. |
 
 ### `POST /check` (multipart/form-data, iOS Share Extension)
 Auth: **one of**
@@ -133,7 +133,7 @@ shared secret.
 | `user_context` | no | free text (e.g. voice note) |
 | `listing_url` | no | `http(s)://…`, ≤ 2048 chars; stored as `listing_url` (empty string when omitted) |
 | `marketplace` | no | slug `^[a-z][a-z0-9_-]{0,31}$` (input is lowercased); default `depop` |
-| `seller_username` | no | leading `@` stripped, lowercased; must match `^[a-z0-9._-]{1,64}$`, otherwise silently dropped. For `depop`, `seller_url` is derived as `https://www.depop.com/{username}/` |
+| `seller_username` | no | see [Seller usernames](#seller-usernames); invalid gives null and never fails the check. For `depop`, `seller_url` is derived as `https://www.depop.com/{username}/` |
 
 Saving (Bearer only):
 - The row is saved only when `error` is null. `listing_name` comes from the vision-read
@@ -147,19 +147,70 @@ Errors: **400** more than 8 images · **413** image too large · **415** not an 
 **422** bad `marketplace` / `listing_url` · **401** auth (above). No images at all gives
 200 with `error: "No screenshots received…"`.
 
-### `POST /check-listing` (JSON, Chrome extension, Bearer required)
+### `POST /check-listing` (JSON, Chrome extension + iOS link share, **Bearer only**)
+`Authorization: Bearer <access_token>` is required. **`X-Cleared-Token` is not accepted
+here** (401): shared-secret checks exist only on multipart `/check`, where they are
+unsaved and not user-scoped.
+
 ```json
 {
   "facts": { /* ListingFacts, optional seed */ },
-  "image_urls": ["https://media-photos.depop.com/…"],
+  "description": "Levi's 505 W29 L32…\n\nPit to pit 21in. Small mark on left knee.",
+  "image_urls": ["https://media-photos.depop.com/b1/…/P0.jpg"],
   "user_context": null,
   "listing_url": "https://www.depop.com/products/…",
   "marketplace": "depop",
-  "seller": { "username": "vintage.finds", "profile_url": "https://www.depop.com/vintage.finds/" }
+  "seller": { "username": "davidjared", "profile_url": "https://www.depop.com/davidjared/" }
 }
 ```
-→ `CheckResponse`. The backend fetches up to 8 `image_urls`. The row is saved
-(`image_urls` kept) when `listing_url` is present; `images_stored` is always 0 here.
+
+| Field | Required | Notes |
+|---|---|---|
+| `facts` | no | `ListingFacts` seed from the page; the model treats it as ground truth unless the photos contradict it |
+| `description` | no | **Top level, next to `facts`, not inside it.** The seller's full description. The server trims it; blank, whitespace-only, or non-string values count as absent; anything over **5000 chars is truncated (never a 422)**. Sent to the model, fenced as untrusted seller text, so measurements and flaws are considered. Stored privately (`listing_description`) for recheck; **never** returned by `GET /api/reports` or `/api/shared`. Clients (iOS, extension) trim, cap at 5000, and omit it when blank |
+| `image_urls` | yes (≥1 usable) | up to 8 used; each fetched server-side through the [image fetch guard](#image-fetch-guard); ≤ 10 MB each |
+| `user_context` | no | buyer's free text |
+| `listing_url` | no | when present the check is **saved** and photos are copied (below) |
+| `marketplace` | no | slug, default `depop` |
+| `seller` | no | `{username, profile_url}` (a bare string is read as `username`). See [Seller usernames](#seller-usernames). Invalid or garbage values become null and never fail the check |
+
+→ `CheckResponse`. If no image can be fetched: 200 with `error: "Could not fetch listing photos…"`.
+
+Saving (when `listing_url` is present):
+- The row stores `image_urls` as sent.
+- **Durable photos:** the photo bytes the server already downloaded for the check, re-verified
+  as JPEG/PNG/WebP/GIF from their bytes, are copied best-effort to private storage at
+  `{user_id}/{report_id}/{n}.{ext}` and recorded in `image_paths`.
+  - The copy runs **concurrently with the model call**, so it normally adds ~0 s. The server
+    waits at most `CLEARED_IMAGE_COPY_WAIT` (default 5 s) after the check finishes, then saves
+    without images and deletes late uploads.
+  - Copies are discarded when the check returns `error`.
+  - A failed copy never fails the check (`images_stored: 0`).
+
+#### Image fetch guard
+Applies to `/check-listing` and to recheck's `image_urls` fallback. Each URL **and every
+redirect hop** (max 3) must be:
+- `http`/`https` with no userinfo, on port 80/443;
+- on a host in the allowlist `CLEARED_IMAGE_HOSTS`, which defaults to `media-photos.depop.com`
+  (comma-separated; `*.example.net` matches subdomains, e.g. `*.vinted.net` later);
+- resolving only to public IPs (no private, loopback, link-local/metadata, CGNAT, multicast,
+  reserved, or IPv4-mapped equivalents).
+
+Bodies are streamed with a 10 MB cap. Timeouts: 5 s connect, 10 s per read. Anything that
+fails a rule is skipped (logged), not fetched.
+
+#### Seller usernames
+Applied to `/check-listing` `seller.username` and `/check` `seller_username`:
+1. Must be a string (numbers are stringified). Anything else gives null.
+2. Trim surrounding whitespace, strip **all** leading `@`, trim again, then lowercase.
+3. The result must match `^[a-z0-9._-]{1,64}$`. Otherwise the seller is **null** and the check
+   still succeeds. Internal spaces, `/`, non-ASCII letters, empty, `@` alone, or more than
+   64 chars all give null.
+4. `seller.profile_url` is kept only if it is `http(s)://`, ≤ 300 chars, with no spaces,
+   quotes, or angle brackets. It is dropped when the username is null.
+
+Examples: `"@DavidJared"` → `davidjared` · `"  @Thrift_Queen \n"` → `thrift_queen` ·
+`"@@vintage.finds"` → `vintage.finds` · `"david jared"` → null · `"émilie"` → null.
 
 ---
 
@@ -186,7 +237,7 @@ the server returns **503**, never an empty list, when it can't read history.
   "notes": "",
   "tags": ["gift"],
   "image_urls": [],               // public CDN URLs (extension checks)
-  "image_paths": [],              // private storage paths (iOS Bearer checks); opaque, not fetchable
+  "image_paths": [],              // private storage copies (/check, /check-listing); opaque, not fetchable
   "seller_username": "vintage.finds|null",
   "seller_url": "https://www.depop.com/vintage.finds/|null",
   "share_token": "<43 chars>|null",
@@ -224,8 +275,9 @@ Body (each field optional; an omitted field stays unchanged):
 ### `POST /api/reports/{id}/recheck` (Bearer, owner only)
 Re-runs the check from stored images and saves the result as a **new** row, which keeps the
 same listing, seller, and image references. Returns `CheckResponse` with the new `report_id`.
-- Image source: `image_paths` (downloaded server-side from private storage) if present,
-  otherwise `image_urls` (fetched from the CDN).
+- Image source: `image_paths` (private copies, downloaded server-side) **first**. Otherwise
+  `image_urls`, re-fetched through the [image fetch guard](#image-fetch-guard).
+- The stored `description`, if any, is passed to the model again and carried to the new row.
 - **409** neither present (older checks): open the listing and check again.
   **404** not found / not yours.
   200 with `error` set if the stored images can't be loaded.
@@ -255,7 +307,7 @@ Public payload (`GET /api/shared/{token}`):
 }
 ```
 **Never** included: user id/email, notes, tags, hub_status, `image_urls`, `image_paths`,
-share metadata, or `verdict.user_context`.
+the seller's `description` (`listing_description`), share metadata, or `verdict.user_context`.
 **404** malformed/unknown/revoked token · **429** per-IP rate limit (default 60/min,
 `Retry-After: 60`). Responses send `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
 
@@ -267,7 +319,7 @@ share metadata, or `verdict.user_context`.
 |---|---|---|
 | 200 + `error` | checks | show the error text |
 | 400 | `/check` >8 images; PATCH with no fields; signup rejected | fix request |
-| 401 | missing/invalid Bearer; bad shared secret; bad login; bad refresh token | refresh once, then sign in |
+| 401 | missing/invalid Bearer (including `X-Cleared-Token` alone on `/check-listing`); bad shared secret on `/check`; bad login; bad refresh token | refresh once, then sign in |
 | 403 | signup not allowlisted | show invite message |
 | 404 | report not yours / missing; share token unknown/revoked | remove from cache |
 | 409 | recheck without stored images | offer "check again" |
@@ -281,6 +333,8 @@ share metadata, or `verdict.user_context`.
 ## 6. Storage (backend-internal, for reference)
 - Private bucket `check-images` (env `CLEARED_IMAGE_BUCKET`), no public access and no
   storage policies. The backend uses the service role.
-- Object path `{user_id}/{report_id}/{n}.{jpg|png|webp|gif}`. Only the backend reads it;
-  no signed or public URL is issued to clients.
-- Setup: `backend/supabase/migrations/20261008_ios_account_parity.sql`.
+- Object path `{user_id}/{report_id}/{n}.{jpg|png|webp|gif}`, written by Bearer `/check`
+  (screenshots) and saved `/check-listing` (CDN photo copies). Only the backend reads it;
+  no signed or public URL is issued to clients. A recheck row references the same objects.
+- Setup: `backend/supabase/migrations/20261008_ios_account_parity.sql` (bucket +
+  `image_paths`) and `20261009_listing_description.sql` (private `listing_description`).
