@@ -6,5 +6,9 @@
 	<array>
 		<string>group.com.kaladanw.cleared</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.kaladanw.cleared.shared</string>
+	</array>
 </dict>
 </plist>

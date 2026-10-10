@@ -49,6 +49,6 @@ final class MultipartBodyTests: XCTestCase {
         // No user_context part when nil.
         let rendered = String(data: request.httpBody ?? Data(), encoding: .isoLatin1) ?? ""
         XCTAssertFalse(rendered.contains("user_context"))
-        XCTAssertEqual(client.session.configuration.timeoutIntervalForRequest, 240)
+        XCTAssertEqual((client.transport as? URLSessionTransport)?.session.configuration.timeoutIntervalForRequest, 240)
     }
 }

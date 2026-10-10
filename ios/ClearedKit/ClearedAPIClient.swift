@@ -18,7 +18,7 @@ public enum ClearedAPIError: Error, Equatable, LocalizedError {
         case .unauthorized:
             return "The backend rejected the credentials (401). Sign in again, or check CLEARED_SHARED_TOKEN in Secrets.xcconfig against Railway."
         case .signInRequired:
-            return "Checking a shared link needs you signed in to your Cleared account, and this build can't sign in yet."
+            return "You're not signed in to Cleared. Open the Cleared app and sign in, then share again."
         case .serverError(let status):
             return "The backend returned an error (HTTP \(status)). Try again in a moment."
         case .badResponse:
@@ -29,13 +29,19 @@ public enum ClearedAPIError: Error, Equatable, LocalizedError {
 
 /// Supplies the signed-in user's Supabase access token.
 ///
-/// The real implementation (shared Keychain session + cross-process refresh
-/// lock between the app and the Share Extension) lands in the iOS auth PR.
+/// The real implementation is `SessionManager` (shared Keychain session +
+/// cross-process refresh lock between the app and the Share Extension).
 /// Contract (`docs/api-contract.md` §1): return a token that is valid for at
 /// least the next 2 minutes, refreshing first if needed; `forceRefresh: true`
 /// is called once after a 401. Return nil when signed out.
 public protocol AccessTokenProvider: Sendable {
     func accessToken(forceRefresh: Bool) async throws -> String?
+    /// The retry after a forced refresh got 401 too: sign out (contract §1).
+    func authenticationFailed(accessToken: String) async
+}
+
+extension AccessTokenProvider {
+    public func authenticationFailed(accessToken: String) async {}
 }
 
 /// How a request authenticates. Only one header is ever sent: the contract
@@ -56,16 +62,29 @@ public struct ClearedAPIClient: Sendable {
     let baseURL: URL
     let token: String?
     let accessTokenProvider: AccessTokenProvider?
-    let session: URLSession
+    let transport: HTTPTransport
+    /// Backoff before the single retry of an idempotent GET that got 503.
+    let unavailableRetryDelay: Duration
 
     public init(baseURL: URL, token: String?, accessTokenProvider: AccessTokenProvider? = nil) {
+        self.init(
+            baseURL: baseURL, token: token, accessTokenProvider: accessTokenProvider,
+            transport: URLSessionTransport(requestTimeout: 240, resourceTimeout: 300)
+        )
+    }
+
+    init(
+        baseURL: URL,
+        token: String?,
+        accessTokenProvider: AccessTokenProvider?,
+        transport: HTTPTransport,
+        unavailableRetryDelay: Duration = .seconds(1)
+    ) {
         self.baseURL = baseURL
         self.token = token
         self.accessTokenProvider = accessTokenProvider
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 240
-        config.timeoutIntervalForResource = 300
-        self.session = URLSession(configuration: config)
+        self.transport = transport
+        self.unavailableRetryDelay = unavailableRetryDelay
     }
 
     /// Reads Secrets.xcconfig-injected config; nil when there's no backend URL,
@@ -89,7 +108,7 @@ public struct ClearedAPIClient: Sendable {
         listingURL: URL? = nil,
         marketplace: String? = nil
     ) async throws -> CheckReport {
-        try await sendWithAuth(bearerRequired: false) { auth in
+        try await sendWithAuth(bearerRequired: false, decode: Self.decodeReport) { auth in
             makeCheckRequest(
                 images: images, userContext: userContext,
                 listingURL: listingURL, marketplace: marketplace, auth: auth
@@ -136,9 +155,34 @@ public struct ClearedAPIClient: Sendable {
 
     public func checkListing(_ body: CheckListingRequest) async throws -> CheckReport {
         let payload = try CheckListingRequest.encoder().encode(body)
-        return try await sendWithAuth(bearerRequired: true) { auth in
+        return try await sendWithAuth(bearerRequired: true, decode: Self.decodeReport) { auth in
             makeCheckListingRequest(body: payload, auth: auth)
         }
+    }
+
+    // MARK: GET /api/reports (history, source of truth)
+
+    /// The signed-in user's saved checks, newest first (contract §3).
+    /// Bearer only. A 503 is retried once; if it persists the caller keeps
+    /// its cache (the server never answers an outage with an empty list).
+    public func fetchReports() async throws -> [ReportRow] {
+        let decode: @Sendable (Data) throws -> [ReportRow] = { data in
+            try ReportRow.decoder().decode([ReportRow].self, from: data)
+        }
+        do {
+            return try await sendWithAuth(bearerRequired: true, decode: decode, makeRequest: makeReportsRequest)
+        } catch ClearedAPIError.serverError(status: 503) {
+            try await Task.sleep(for: unavailableRetryDelay)
+            return try await sendWithAuth(bearerRequired: true, decode: decode, makeRequest: makeReportsRequest)
+        }
+    }
+
+    func makeReportsRequest(auth: RequestAuth) -> URLRequest {
+        var request = URLRequest(url: baseURL.appending(path: "api/reports"))
+        request.httpMethod = "GET"
+        apply(auth, to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
     }
 
     func makeCheckListingRequest(body: Data, auth: RequestAuth) -> URLRequest {
@@ -154,20 +198,28 @@ public struct ClearedAPIClient: Sendable {
     // MARK: Auth plumbing
 
     /// Resolves auth, sends, and on a Bearer 401 refreshes once and retries
-    /// once (contract §1). Signing out after a second 401 is the auth layer's job.
-    private func sendWithAuth(
+    /// once (contract §1). A second 401 tells the provider to sign out and
+    /// surfaces as `.signInRequired`.
+    private func sendWithAuth<T>(
         bearerRequired: Bool,
+        decode: (Data) throws -> T,
         makeRequest: (RequestAuth) -> URLRequest
-    ) async throws -> CheckReport {
+    ) async throws -> T {
         let auth = try await resolveAuth(bearerRequired: bearerRequired, forceRefresh: false)
         do {
-            return try await send(makeRequest(auth))
+            return try await send(makeRequest(auth), decode: decode)
         } catch ClearedAPIError.unauthorized {
-            guard case .bearer = auth,
-                  let retryAuth = try? await resolveAuth(bearerRequired: true, forceRefresh: true),
-                  case .bearer = retryAuth
-            else { throw ClearedAPIError.unauthorized }
-            return try await send(makeRequest(retryAuth))
+            guard case .bearer = auth else { throw ClearedAPIError.unauthorized }
+            // Refresh once. A refresh 401 has already signed out (nil token →
+            // .signInRequired); a 503 propagates and keeps the session.
+            let retryAuth = try await resolveAuth(bearerRequired: true, forceRefresh: true)
+            guard case .bearer(let retryToken) = retryAuth else { throw ClearedAPIError.signInRequired }
+            do {
+                return try await send(makeRequest(retryAuth), decode: decode)
+            } catch ClearedAPIError.unauthorized {
+                await accessTokenProvider?.authenticationFailed(accessToken: retryToken)
+                throw ClearedAPIError.signInRequired
+            }
         }
     }
 
@@ -192,15 +244,12 @@ public struct ClearedAPIClient: Sendable {
         }
     }
 
-    private func send(_ request: URLRequest) async throws -> CheckReport {
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw ClearedAPIError.badResponse
-        }
+    private func send<T>(_ request: URLRequest, decode: (Data) throws -> T) async throws -> T {
+        let (data, http) = try await transport.send(request)
         switch http.statusCode {
         case 200:
             do {
-                return try CheckReport.decoder().decode(CheckReport.self, from: data)
+                return try decode(data)
             } catch {
                 throw ClearedAPIError.badResponse
             }
@@ -209,5 +258,9 @@ public struct ClearedAPIClient: Sendable {
         default:
             throw ClearedAPIError.serverError(status: http.statusCode)
         }
+    }
+
+    private static func decodeReport(_ data: Data) throws -> CheckReport {
+        try CheckReport.decoder().decode(CheckReport.self, from: data)
     }
 }

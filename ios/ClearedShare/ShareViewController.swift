@@ -59,7 +59,29 @@ struct ShareRootView: View {
             ReportView(report: report)
         case .failed(let message):
             FailureView(message: message)
+        case .signInRequired:
+            SignInRequiredView()
         }
+    }
+}
+
+/// Extensions can't show the app's login (and shouldn't collect passwords),
+/// so point the user to the app once; after that, shares just work.
+private struct SignInRequiredView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text("Open Cleared to sign in")
+                .font(.headline)
+            Text("Sign in once in the Cleared app. After that, sharing a Depop listing here works without signing in again.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
