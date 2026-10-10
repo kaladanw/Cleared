@@ -1,7 +1,12 @@
 """Cleared backend — the thin proxy.
 
-POST /check  (multipart: images[] + optional user_context) -> CheckReport
-POST /check-listing  (JSON: facts + image_urls + user_context + listing_url) -> CheckReport
+POST /check  (multipart: images[] + optional user_context, listing_url,
+             marketplace, seller_username) -> CheckResponse. Bearer JWT saves to
+             the user's history (+ private screenshot storage); the legacy
+             X-Cleared-Token path is unsaved.
+POST /check-listing  (JSON: facts + image_urls + user_context + listing_url) -> CheckResponse
+
+Full contract: docs/api-contract.md
 
 The input is listing SCREENSHOT(S) or fetched CDN images — Depop flat-edge-blocks
 every server-side page fetch (see claude.mds/phase-0.md). Vision reads the images.
@@ -17,6 +22,9 @@ import re
 import secrets
 import threading
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,12 +39,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from .auth import get_current_user, login, signup
+from .auth import get_current_user, login, refresh, signup
+from .check_images import (
+    ImageRejected,
+    sniff_image_type,
+    download_check_images,
+    owned_paths,
+    read_uploads,
+    remove_check_images,
+    upload_check_images,
+)
 from .claude_check import run_check
 from .images import fetch_images
 from .models import (
     CheckListingRequest,
     CheckReport,
+    CheckResponse,
+    RefreshRequest,
+    normalize_listing_url,
     ListingFacts,
     ReportHubUpdate,
     HUB_STATUS_NONE,
@@ -130,79 +150,253 @@ async def auth_signup(body: AuthRequest) -> dict:
 
 @app.post("/auth/login")
 async def auth_login(body: AuthRequest) -> dict:
-    """Sign in with email + password. Returns { access_token, user }."""
+    """Sign in with email + password.
+
+    Returns { access_token, refresh_token, expires_in, expires_at, token_type, user }.
+    """
     return await login(body.email, body.password)
 
 
+@app.post("/auth/refresh")
+async def auth_refresh(body: RefreshRequest) -> dict:
+    """Exchange a refresh token for a new session (same shape as /auth/login).
+
+    Supabase rotates refresh tokens: store the new ``refresh_token`` every time.
+    401 = refresh token invalid/expired/already used (sign in again);
+    503 = auth service unreachable (retry; do not sign the user out).
+    """
+    return await refresh(body.refresh_token)
+
+
 # ---------------------------------------------------------------------------
-# Screenshot check (multipart) — UNCHANGED. Keeps X-Cleared-Token auth.
+# Screenshot check (multipart) — iOS Share Extension.
+#   Authorization: Bearer <jwt>  → user-scoped: saved to reports + screenshots
+#                                  stored privately; response has report_id.
+#   X-Cleared-Token (legacy)     → unchanged: not user-scoped, not saved.
+# If both are sent, Bearer wins. A present-but-invalid Authorization header is
+# a 401 (never a silent fallback to the shared secret).
 # ---------------------------------------------------------------------------
 
-@app.post("/check", response_model=CheckReport)
+@app.post("/check", response_model=CheckResponse)
 async def check(
     images: list[UploadFile] = [],
     user_context: str | None = Form(None),
+    listing_url: str | None = Form(None),
+    marketplace: str | None = Form(None),
+    seller_username: str | None = Form(None),
+    authorization: str | None = Header(None),
     x_cleared_token: str | None = Header(None, alias="X-Cleared-Token"),
-) -> CheckReport:
-    _require_token(x_cleared_token)
+) -> CheckResponse:
+    user: dict | None = None
+    if authorization is not None:
+        user = await get_current_user(authorization)  # raises 401 / 503
+    else:
+        _require_token(x_cleared_token)
 
-    loaded: list[tuple[bytes, str]] = []
-    for f in images:
-        media_type = f.content_type if f.content_type in _ALLOWED_IMAGE_TYPES else "image/jpeg"
-        loaded.append((await f.read(), media_type))
+    try:
+        listing_url = normalize_listing_url(listing_url)
+        marketplace = normalize_marketplace(marketplace or "depop")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    seller = normalize_seller_username(seller_username)
+
+    try:
+        loaded = await read_uploads(images)
+    except ImageRejected as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
 
     if not loaded:
-        return CheckReport(
+        return CheckResponse(
             listing_facts=ListingFacts(),
             error="No screenshots received — share the listing photos to analyze.",
         )
 
-    log.info("checking listing from %d screenshot(s)", len(loaded))
+    log.info(
+        "checking listing from %d screenshot(s) auth=%s",
+        len(loaded),
+        "bearer" if user else "shared-secret",
+    )
     report = run_check(loaded, user_context=user_context)
     if report.error:
         log.warning("check returned error: %s", report.error)
-    return report
+
+    if user is None or report.error:
+        # Legacy shared-secret path (unchanged), or nothing worth saving.
+        return CheckResponse(**report.model_dump())
+
+    report_id, stored = _save_check_with_images(
+        user_id=user["id"],
+        report=report,
+        images=loaded,
+        listing_url=listing_url,
+        marketplace=marketplace,
+        seller_username=seller,
+    )
+    return CheckResponse(**report.model_dump(), report_id=report_id, images_stored=len(stored))
+
+
+def _seller_url_for(marketplace: str, seller_username: str | None) -> str | None:
+    if seller_username and marketplace == "depop":
+        return f"https://www.depop.com/{seller_username}/"
+    return None
+
+
+def _save_check_with_images(
+    *,
+    user_id: str,
+    report: CheckReport,
+    images: list[tuple[bytes, str]],
+    listing_url: str | None,
+    marketplace: str,
+    seller_username: str | None,
+) -> tuple[str | None, list[str]]:
+    """Upload screenshots (best effort) then insert the report row.
+
+    The report id is generated up front so objects land at
+    ``{user_id}/{report_id}/{n}.{ext}``. Upload failures still save the report
+    (without images). If the insert fails, uploaded objects are removed.
+    """
+    sb = get_supabase()
+    if sb is None:
+        return None, []
+    report_id = str(uuid.uuid4())
+    stored = upload_check_images(sb, user_id, report_id, images)
+    facts = report.listing_facts
+    saved_id = _save_report(
+        user_id=user_id,
+        listing_url=listing_url or "",
+        listing_name=facts.model_or_name or facts.brand,
+        report=report,
+        marketplace=marketplace,
+        seller_username=seller_username,
+        seller_url=_seller_url_for(marketplace, seller_username),
+        report_id=report_id,
+        image_paths=stored,
+    )
+    if saved_id is None:
+        remove_check_images(sb, stored)
+        return None, []
+    return saved_id, stored
 
 
 # ---------------------------------------------------------------------------
 # Listing check (JSON + image URLs) — JWT auth, saves to Supabase
 # ---------------------------------------------------------------------------
 
-@app.post("/check-listing", response_model=CheckReport)
+# Durable photo copy for /check-listing: the CDN bytes are already in memory for
+# the check, so they are uploaded to private storage on a small thread pool
+# *while* the model runs (30–90 s). Collecting the result normally costs ~0 s;
+# the wait is capped so a slow Storage never delays the response much.
+_COPY_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cleared-img-copy")
+IMAGE_COPY_WAIT_SECONDS = float(os.environ.get("CLEARED_IMAGE_COPY_WAIT", "5"))
+
+
+def _start_image_copy(sb, user_id: str, report_id: str, images: list[tuple[bytes, str]]):
+    """Submit a best-effort upload of byte-verified images; None if nothing to do."""
+    durable = []
+    for data, _declared in images:
+        sniffed = sniff_image_type(data)
+        if sniffed:  # image type checked from the bytes, not headers/extension
+            durable.append((data, sniffed))
+    if sb is None or not durable:
+        return None
+    try:
+        return _COPY_POOL.submit(upload_check_images, sb, user_id, report_id, durable)
+    except RuntimeError as exc:  # pool shut down
+        log.warning("image copy not started (non-fatal): %r", exc)
+        return None
+
+
+def _collect_image_copy(future, sb, *, keep: bool) -> list[str]:
+    """Wait (bounded) for the copy. Never raises; cleans up when not kept."""
+    if future is None:
+        return []
+
+    def _discard(f) -> None:
+        try:
+            remove_check_images(sb, f.result())
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("image copy cleanup failed (non-fatal): %r", exc)
+
+    try:
+        paths = future.result(timeout=IMAGE_COPY_WAIT_SECONDS)
+    except FutureTimeout:
+        log.warning("image copy still running after %.1fs; saving without images", IMAGE_COPY_WAIT_SECONDS)
+        future.add_done_callback(_discard)
+        return []
+    except Exception as exc:
+        log.warning("image copy failed (non-fatal): %r", exc)
+        return []
+    if not keep:
+        remove_check_images(sb, paths)
+        return []
+    return paths
+
+
+@app.post("/check-listing", response_model=CheckResponse)
 async def check_listing(
     request: CheckListingRequest,
     user: dict = Depends(get_current_user),
-) -> CheckReport:
+) -> CheckResponse:
+    """Bearer only (no X-Cleared-Token): checks here are always user-scoped."""
     images = fetch_images(request.image_urls)
     if not images:
-        return CheckReport(
+        return CheckResponse(
             listing_facts=ListingFacts(),
             error="Could not fetch listing photos from the supplied image URLs.",
         )
 
-    log.info("checking listing from %d fetched image(s)", len(images))
+    # Seller is best-effort: an unusable username nulls the whole seller.
+    seller_username = request.seller.username if request.seller else None
+    seller_url = request.seller.profile_url if (request.seller and seller_username) else None
+
+    will_save = bool(request.listing_url)
+    report_id = str(uuid.uuid4()) if will_save else None
+    sb = get_supabase() if will_save else None
+    copy_future = _start_image_copy(sb, user["id"], report_id, images) if will_save else None
+
+    log.info(
+        "checking listing from %d fetched image(s) description=%s",
+        len(images),
+        "yes" if request.description else "no",
+    )
     report = run_check(
         images,
         user_context=request.user_context,
         seeded_facts=request.facts,
+        description=request.description,
     )
     if report.error:
         log.warning("check-listing returned error: %s", report.error)
 
+    # Durable copies are kept only for a successful check that gets saved.
+    image_paths = _collect_image_copy(copy_future, sb, keep=not report.error)
+
     # Best-effort: save the report to Supabase. A save failure never fails the check.
-    if request.listing_url:
-        _save_report(
+    saved_id = None
+    if will_save:
+        saved_id = _save_report(
             user_id=user["id"],
             listing_url=request.listing_url,
             listing_name=request.facts.model_or_name or request.facts.brand,
             report=report,
             marketplace=request.marketplace,
             image_urls=request.image_urls,
-            seller_username=request.seller.username if request.seller else None,
-            seller_url=request.seller.profile_url if request.seller else None,
+            seller_username=seller_username,
+            seller_url=seller_url,
+            report_id=report_id,
+            image_paths=image_paths,
+            listing_description=request.description,
         )
+        if saved_id is None and image_paths:
+            remove_check_images(sb, image_paths)
+            image_paths = []
 
-    return report
+    return CheckResponse(
+        **report.model_dump(),
+        report_id=saved_id,
+        images_stored=len(image_paths) if saved_id else 0,
+    )
 
 
 def _save_report(
@@ -214,43 +408,74 @@ def _save_report(
     image_urls: list[str] | None = None,
     seller_username: str | None = None,
     seller_url: str | None = None,
-) -> None:
+    report_id: str | None = None,
+    image_paths: list[str] | None = None,
+    listing_description: str | None = None,
+) -> str | None:
+    """Insert a report row. Returns its id, or None when not saved (non-fatal)."""
     sb = get_supabase()
     if sb is None:
-        return  # Supabase not configured — skip silently
+        return None  # Supabase not configured — skip silently
 
     verdict_str = (
         report.verdict.recommendation.value
         if report.verdict.recommendation
         else None
     )
+    row = {
+        "user_id": user_id,
+        "listing_url": listing_url,
+        "listing_name": listing_name or "",
+        "marketplace": marketplace,
+        "verdict": verdict_str,
+        "report_json": report.model_dump(mode="json"),
+        "image_urls": list(image_urls or []),
+        "seller_username": seller_username,
+        "seller_url": seller_url,
+    }
+    if report_id:
+        row["id"] = report_id
+    if image_paths:
+        row["image_paths"] = list(image_paths)
+    if listing_description:
+        # Private column: never selected by /api/shared or the hub list.
+        row["listing_description"] = listing_description
     try:
-        sb.table("reports").insert({
-            "user_id": user_id,
-            "listing_url": listing_url,
-            "listing_name": listing_name or "",
-            "marketplace": marketplace,
-            "verdict": verdict_str,
-            "report_json": report.model_dump(mode="json"),
-            "image_urls": list(image_urls or []),
-            "seller_username": seller_username,
-            "seller_url": seller_url,
-        }).execute()
-        log.info(
-            "saved report for user=%s marketplace=%s url=%s",
-            user_id,
-            marketplace,
-            listing_url,
-        )
+        result = sb.table("reports").insert(row).execute()
     except Exception as exc:
         log.warning("report save failed (non-fatal): %r", exc)
+        return None
+    saved = (getattr(result, "data", None) or [{}])[0] or {}
+    saved_id = saved.get("id") or report_id
+    log.info(
+        "saved report id=%s user=%s marketplace=%s url=%s images=%d",
+        saved_id,
+        user_id,
+        marketplace,
+        listing_url,
+        len(image_paths or []),
+    )
+    return str(saved_id) if saved_id else None
 
 
 _REPORT_SELECT = (
     "id, listing_url, listing_name, marketplace, verdict, checked_at, "
-    "report_json, hub_status, notes, tags, image_urls, "
+    "report_json, hub_status, notes, tags, image_urls, image_paths, "
     "seller_username, seller_url, share_token, shared_at"
 )
+
+
+def _stored_image_urls(row: dict) -> list[str]:
+    urls = row.get("image_urls") or []
+    return urls if isinstance(urls, list) else []
+
+
+def _decorate_row(row: dict) -> dict:
+    """Owner-facing row: add ``can_recheck`` (API recheck possible)."""
+    paths = row.get("image_paths")
+    row["image_paths"] = paths if isinstance(paths, list) else []
+    row["can_recheck"] = bool(_stored_image_urls(row) or row["image_paths"])
+    return row
 
 
 def _filter_reports_rows(
@@ -341,10 +566,14 @@ def _parse_report_filters(
 
 
 def _query_reports(user_id: str, filters: dict) -> list[dict]:
-    """Run the filtered hub query. Returns [] when Supabase is unavailable."""
+    """Run the filtered hub query.
+
+    Raises 503 when the query fails: clients (iOS) treat this list as the source
+    of truth, so an error must never look like an empty history.
+    """
     sb = get_supabase()
     if sb is None:
-        return []
+        raise HTTPException(status_code=503, detail="Supabase is not configured.")
     try:
         query = sb.table("reports").select(_REPORT_SELECT).eq("user_id", user_id)
         if filters.get("marketplace"):
@@ -359,15 +588,16 @@ def _query_reports(user_id: str, filters: dict) -> list[dict]:
             query = query.eq("seller_username", filters["seller"])
         result = query.order("checked_at", desc=True).execute()
         rows = result.data or []
-        return _filter_reports_rows(
-            rows,
-            q=filters.get("q"),
-            date_from=filters.get("date_from"),
-            date_to=filters.get("date_to"),
-        )
     except Exception as exc:
-        log.warning("report list failed (non-fatal): %r", exc)
-        return []
+        log.warning("report list failed: %r", exc)
+        raise HTTPException(status_code=503, detail="Could not load reports. Try again.") from exc
+    rows = _filter_reports_rows(
+        rows,
+        q=filters.get("q"),
+        date_from=filters.get("date_from"),
+        date_to=filters.get("date_to"),
+    )
+    return [_decorate_row(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -556,18 +786,20 @@ async def update_report_hub(
     rows = result.data or []
     if not rows:
         raise HTTPException(status_code=404, detail="Report not found.")
-    return rows[0]
+    return _decorate_row(rows[0])
 
 
-@app.post("/api/reports/{report_id}/recheck")
+@app.post("/api/reports/{report_id}/recheck", response_model=CheckResponse)
 async def recheck_report(
     report_id: str,
     user: dict = Depends(get_current_user),
-) -> CheckReport:
-    """Best-effort recheck using stored facts + image_urls from a prior report.
+) -> CheckResponse:
+    """Best-effort recheck of an owned report; saves the result as a NEW row.
 
-    Requires image_urls saved on the row (newer checks). Older rows without
-    images should use Open listing + the Chrome extension instead.
+    Image sources, in order: ``image_paths`` (private storage copies from an
+    authenticated /check or /check-listing — downloaded server-side with the
+    service role) or ``image_urls`` (CDN URLs, re-fetched through the SSRF guard). 409 when the row
+    has neither (older checks): open the listing and check it again instead.
     """
     sb = get_supabase()
     if sb is None:
@@ -576,7 +808,7 @@ async def recheck_report(
     try:
         result = (
             sb.table("reports")
-            .select(_REPORT_SELECT)
+            .select(_REPORT_SELECT + ", listing_description")
             .eq("id", report_id)
             .eq("user_id", user["id"])
             .limit(1)
@@ -591,15 +823,14 @@ async def recheck_report(
         raise HTTPException(status_code=404, detail="Report not found.")
 
     row = rows[0]
-    image_urls = row.get("image_urls") or []
-    if isinstance(image_urls, str):
-        image_urls = []
-    if not image_urls:
+    image_paths = owned_paths(row.get("image_paths"), user["id"])
+    image_urls = _stored_image_urls(row)
+    if not image_paths and not image_urls:
         raise HTTPException(
             status_code=409,
             detail=(
-                "This check has no stored image URLs for an API recheck. "
-                "Open the listing and use the Chrome extension instead."
+                "This check has no stored images for an API recheck. "
+                "Open the listing and check it again from the extension or iOS app."
             ),
         )
 
@@ -610,34 +841,41 @@ async def recheck_report(
     except Exception:
         facts = ListingFacts()
 
-    images = fetch_images(list(image_urls))
+    if image_paths:
+        images = download_check_images(sb, image_paths)
+        source = "storage"
+    else:
+        images = fetch_images(list(image_urls))
+        source = "urls"
     if not images:
-        return CheckReport(
+        return CheckResponse(
             listing_facts=ListingFacts(),
-            error="Could not fetch listing photos from the stored image URLs.",
+            error="Could not load the stored listing photos for a recheck.",
         )
 
-    log.info("rechecking report=%s from %d stored image(s)", report_id, len(images))
-    report = run_check(images, user_context=None, seeded_facts=facts)
+    log.info("rechecking report=%s from %d %s image(s)", report_id, len(images), source)
+    description = row.get("listing_description") or None
+    report = run_check(images, user_context=None, seeded_facts=facts, description=description)
     if report.error:
         log.warning("recheck returned error: %s", report.error)
+        return CheckResponse(**report.model_dump())
 
-    listing_url = row.get("listing_url")
-    if listing_url and not report.error:
-        _save_report(
-            user_id=user["id"],
-            listing_url=listing_url,
-            listing_name=row.get("listing_name")
-            or facts.model_or_name
-            or facts.brand,
-            report=report,
-            marketplace=row.get("marketplace") or "depop",
-            image_urls=list(image_urls),
-            seller_username=row.get("seller_username"),
-            seller_url=row.get("seller_url"),
-        )
-
-    return report
+    new_id = _save_report(
+        user_id=user["id"],
+        listing_url=row.get("listing_url") or "",
+        listing_name=row.get("listing_name") or facts.model_or_name or facts.brand,
+        report=report,
+        marketplace=row.get("marketplace") or "depop",
+        image_urls=list(image_urls),
+        seller_username=row.get("seller_username"),
+        seller_url=row.get("seller_url"),
+        # The new row references the same stored objects as the original.
+        image_paths=image_paths,
+        listing_description=description,
+    )
+    return CheckResponse(
+        **report.model_dump(), report_id=new_id, images_stored=len(image_paths) if new_id else 0
+    )
 
 
 # ---------------------------------------------------------------------------

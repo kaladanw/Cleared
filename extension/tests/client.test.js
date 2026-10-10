@@ -113,6 +113,52 @@ describe("client", () => {
     });
   });
 
+  it("sends the extracted description top-level, trimmed and capped", () => {
+    const body = buildCheckListingRequest(
+      { facts: { brand: "Levi's" }, image_urls: [], description: "  W29 L32. Small mark on knee.\n " },
+      null,
+      "https://www.depop.com/products/x/",
+    );
+    assert.equal(body.description, "W29 L32. Small mark on knee.");
+    assert.equal(body.facts.description, undefined);
+    assert.deepEqual(Object.keys(body), [
+      "facts", "image_urls", "user_context", "listing_url", "marketplace", "seller", "description",
+    ]);
+
+    const long = buildCheckListingRequest({ facts: {}, image_urls: [], description: "x".repeat(9000) }, null, null);
+    assert.equal(long.description.length, 5000);
+  });
+
+  it("omits description when blank or missing (backward compatible body)", () => {
+    for (const description of [undefined, null, "", "   \n\t", 42]) {
+      const body = buildCheckListingRequest({ facts: {}, image_urls: [], description }, null, null);
+      assert.equal("description" in body, false, String(description));
+    }
+  });
+
+  it("posts the description from an extracted listing", async () => {
+    const { extractListingFromNextDataJson } = require("../src/extractor.js");
+    const listing = extractListingFromNextDataJson(JSON.stringify({
+      props: { pageProps: { product: {
+        brandName: "Levi's",
+        title: "Levi's 505",
+        price: "40.00",
+        currencyName: "USD",
+        description: "Levi's 505 W29 L32. Pit to pit 21in.",
+        pictures: [{ url: "https://media-photos.depop.com/b1/1/P0.jpg" }],
+      } } },
+    }));
+    let sent;
+    await postCheckListing(listing, {
+      token: "jwt",
+      fetchImpl: async (_url, options) => {
+        sent = JSON.parse(options.body);
+        return { ok: true, json: async () => ({}) };
+      },
+    });
+    assert.equal(sent.description, "Levi's 505 W29 L32. Pit to pit 21in.");
+  });
+
   it("throws a clear error when the backend returns a non-2xx response", async () => {
     const fakeFetch = async () => ({
       ok: false,

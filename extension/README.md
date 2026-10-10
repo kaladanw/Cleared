@@ -23,6 +23,13 @@ The hub is marketplace-aware. To plug in a new site:
 
 No Vinted extractor ships in this folder yet — Depop is the first marketplace.
 
+## Listing description
+
+The extractor's `description` (ld+json / `__NEXT_DATA__`) is sent **top-level** on
+`POST /check-listing` (next to `facts`, same as iOS): trimmed, capped at 5000
+chars, and omitted when blank. The backend gives it to the model (measurements,
+flaws) and keeps it private; it never appears on shared report links.
+
 ## Seller capture
 
 `extractListingFromDocument` also returns `seller: { username, profile_url }`

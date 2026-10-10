@@ -5,8 +5,18 @@
   // own content_scripts match + extractor + marketplace id (see extension/README.md).
   const DEFAULT_MARKETPLACE = "depop";
 
+  const DESCRIPTION_MAX = 5000;
+
+  /** Trim and cap the seller's description; null when blank (then omitted). */
+  function normalizeDescription(value) {
+    if (typeof value !== "string") return null;
+    const text = value.trim();
+    if (!text) return null;
+    return text.slice(0, DESCRIPTION_MAX).trimEnd();
+  }
+
   function buildCheckListingRequest(listing, userContext, listingUrl, marketplace) {
-    return {
+    const body = {
       facts: listing.facts || {},
       image_urls: listing.image_urls || [],
       user_context: userContext || null,
@@ -15,6 +25,10 @@
       // Best-effort { username, profile_url } from the extractor; null if unknown.
       seller: listing.seller || null,
     };
+    // Top-level (not inside facts), same as iOS; omitted when blank.
+    const description = normalizeDescription(listing.description);
+    if (description) body.description = description;
+    return body;
   }
 
   /**

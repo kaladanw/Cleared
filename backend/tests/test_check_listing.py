@@ -19,63 +19,67 @@ from app.models import CheckListingRequest, CheckReport, ListingFacts, ReportHub
 _FAKE_USER = {"id": "test-user-id", "email": "test@test.com"}
 
 
+def _public_resolver(host, port):
+    return ["151.101.1.1"]
+
+
+def _mock_client(routes: dict, calls: list | None = None):
+    """httpx.Client over a MockTransport: url -> httpx.Response."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if calls is not None:
+            calls.append(str(request.url))
+        return routes.get(str(request.url), httpx.Response(404))
+
+    return httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
+
+
 class FetchImagesTests(unittest.TestCase):
     def test_fetch_images_keeps_only_allowed_images_and_derives_media_type(self):
         from app.images import fetch_images
 
-        responses = [
-            httpx.Response(
-                200,
-                headers={"content-type": "image/jpeg; charset=binary"},
-                content=b"jpeg-bytes",
+        base = "https://media-photos.depop.com"
+        routes = {
+            f"{base}/a.jpg": httpx.Response(
+                200, headers={"content-type": "image/jpeg; charset=binary"}, content=b"jpeg-bytes"
             ),
-            httpx.Response(
-                200,
-                headers={"content-type": "text/html"},
-                content=b"<html>not an image</html>",
+            f"{base}/not-image": httpx.Response(
+                200, headers={"content-type": "text/html"}, content=b"<html>not an image</html>"
             ),
-            httpx.Response(500, content=b"nope"),
-            httpx.Response(
-                200,
-                headers={"content-type": "application/octet-stream"},
-                content=b"png-bytes",
+            f"{base}/500.jpg": httpx.Response(500, content=b"nope"),
+            f"{base}/fallback.png": httpx.Response(
+                200, headers={"content-type": "application/octet-stream"}, content=b"png-bytes"
             ),
-            httpx.Response(
-                200,
-                headers={"content-type": "image/gif"},
-                content=b"this-is-too-large",
+            f"{base}/large.gif": httpx.Response(
+                200, headers={"content-type": "image/gif"}, content=b"this-is-too-large"
             ),
-        ]
-
-        with mock.patch("app.images.httpx.get", side_effect=responses) as get:
-            images = fetch_images(
-                [
-                    "https://media-photos.depop.com/a.jpg",
-                    "https://media-photos.depop.com/not-image",
-                    "https://media-photos.depop.com/500.jpg",
-                    "https://media-photos.depop.com/fallback.png",
-                    "https://media-photos.depop.com/large.gif",
-                ],
-                per_image_cap=12,
-            )
+        }
+        calls: list = []
+        images = fetch_images(
+            [f"{base}/a.jpg", f"{base}/not-image", f"{base}/500.jpg", f"{base}/fallback.png", f"{base}/large.gif"],
+            per_image_cap=12,
+            client=_mock_client(routes, calls),
+            resolver=_public_resolver,
+        )
 
         self.assertEqual(images, [(b"jpeg-bytes", "image/jpeg"), (b"png-bytes", "image/png")])
-        self.assertEqual(get.call_count, 5)
+        self.assertEqual(len(calls), 5)
 
     def test_fetch_images_caps_number_of_attempted_urls(self):
         from app.images import fetch_images
 
-        with mock.patch(
-            "app.images.httpx.get",
-            return_value=httpx.Response(200, headers={"content-type": "image/webp"}, content=b"ok"),
-        ) as get:
-            images = fetch_images(
-                ["https://example.com/1.webp", "https://example.com/2.webp"],
-                max_images=1,
-            )
+        base = "https://media-photos.depop.com"
+        ok = httpx.Response(200, headers={"content-type": "image/webp"}, content=b"ok")
+        calls: list = []
+        images = fetch_images(
+            [f"{base}/1.webp", f"{base}/2.webp"],
+            max_images=1,
+            client=_mock_client({f"{base}/1.webp": ok, f"{base}/2.webp": ok}, calls),
+            resolver=_public_resolver,
+        )
 
         self.assertEqual(images, [(b"ok", "image/webp")])
-        self.assertEqual(get.call_count, 1)
+        self.assertEqual(len(calls), 1)
 
 
 class SeededFactsTests(unittest.TestCase):
@@ -470,7 +474,7 @@ class HubTriageTests(unittest.TestCase):
             response = client.post("/api/reports/abc/recheck")
 
         self.assertEqual(response.status_code, 409)
-        self.assertIn("image URLs", response.json()["detail"])
+        self.assertIn("no stored images", response.json()["detail"])
 
     def test_recheck_runs_when_images_present(self):
         client, main = self._make_client_with_auth()

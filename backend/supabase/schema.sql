@@ -17,6 +17,8 @@ create table if not exists reports (
   notes       text not null default '',
   tags        text[] not null default '{}',
   image_urls  jsonb not null default '[]'::jsonb,
+  image_paths jsonb not null default '[]'::jsonb,  -- private storage paths (/check, /check-listing)
+  listing_description text,  -- private: seller description for recheck; never shared
   share_token text,
   shared_at   timestamptz,
   seller_username text,
@@ -64,3 +66,11 @@ alter table reports enable row level security;
 drop policy if exists "users see own reports" on reports;
 create policy "users see own reports" on reports
   for all using (auth.uid() = user_id);
+
+-- Private screenshot bucket for authenticated iOS /check (see
+-- migrations/20261008_ios_account_parity.sql). No storage policies: the backend
+-- uses the service role; clients never read the bucket directly.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('check-images', 'check-images', false, 10485760,
+        array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do nothing;
