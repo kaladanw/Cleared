@@ -1,0 +1,714 @@
+{
+ "variantSet": [
+  {
+   "country": "US",
+   "id": 22,
+   "lang": "en",
+   "name": "wmns-bottom-sizes",
+   "variant": [
+    {
+     "slot": 243,
+     "text": "One size",
+     "variantId": 1
+    },
+    {
+     "slot": 244,
+     "text": "0",
+     "variantId": 2
+    },
+    {
+     "slot": 245,
+     "text": "1",
+     "variantId": 3
+    },
+    {
+     "slot": 246,
+     "text": "2",
+     "variantId": 4
+    },
+    {
+     "slot": 247,
+     "text": "3",
+     "variantId": 5
+    },
+    {
+     "slot": 248,
+     "text": "4",
+     "variantId": 6
+    },
+    {
+     "slot": 249,
+     "text": "5",
+     "variantId": 7
+    },
+    {
+     "slot": 250,
+     "text": "6",
+     "variantId": 8
+    },
+    {
+     "slot": 251,
+     "text": "7",
+     "variantId": 9
+    },
+    {
+     "slot": 252,
+     "text": "8",
+     "variantId": 10
+    },
+    {
+     "slot": 253,
+     "text": "9",
+     "variantId": 11
+    },
+    {
+     "slot": 254,
+     "text": "10",
+     "variantId": 12
+    },
+    {
+     "slot": 255,
+     "text": "11",
+     "variantId": 13
+    },
+    {
+     "slot": 256,
+     "text": "12",
+     "variantId": 14
+    },
+    {
+     "slot": 257,
+     "text": "14",
+     "variantId": 37
+    },
+    {
+     "slot": 258,
+     "text": "16",
+     "variantId": 38
+    },
+    {
+     "slot": 259,
+     "text": "18",
+     "variantId": 39
+    },
+    {
+     "slot": 260,
+     "text": "20",
+     "variantId": 40
+    },
+    {
+     "slot": 261,
+     "text": "22",
+     "variantId": 41
+    },
+    {
+     "slot": 262,
+     "text": "24",
+     "variantId": 42
+    },
+    {
+     "slot": 263,
+     "text": "26",
+     "variantId": 43
+    },
+    {
+     "slot": 264,
+     "text": "28",
+     "variantId": 44
+    },
+    {
+     "slot": 265,
+     "text": "30",
+     "variantId": 45
+    },
+    {
+     "slot": 266,
+     "text": "32",
+     "variantId": 46
+    },
+    {
+     "slot": 267,
+     "text": "34",
+     "variantId": 60
+    },
+    {
+     "slot": 268,
+     "text": "36",
+     "variantId": 61
+    },
+    {
+     "slot": 269,
+     "text": "21\"",
+     "variantId": 48
+    },
+    {
+     "slot": 270,
+     "text": "22\"",
+     "variantId": 49
+    },
+    {
+     "slot": 271,
+     "text": "23\"",
+     "variantId": 33
+    },
+    {
+     "slot": 272,
+     "text": "24\"",
+     "variantId": 15
+    },
+    {
+     "slot": 273,
+     "text": "25\"",
+     "variantId": 16
+    },
+    {
+     "slot": 274,
+     "text": "26\"",
+     "variantId": 17
+    },
+    {
+     "slot": 275,
+     "text": "27\"",
+     "variantId": 18
+    },
+    {
+     "slot": 276,
+     "text": "28\"",
+     "variantId": 19
+    },
+    {
+     "slot": 277,
+     "text": "29\"",
+     "variantId": 20
+    },
+    {
+     "slot": 278,
+     "text": "30\"",
+     "variantId": 21
+    },
+    {
+     "slot": 279,
+     "text": "31\"",
+     "variantId": 22
+    },
+    {
+     "slot": 280,
+     "text": "32\"",
+     "variantId": 23
+    },
+    {
+     "slot": 281,
+     "text": "33\"",
+     "variantId": 24
+    },
+    {
+     "slot": 282,
+     "text": "34\"",
+     "variantId": 25
+    },
+    {
+     "slot": 283,
+     "text": "35\"",
+     "variantId": 34
+    },
+    {
+     "slot": 284,
+     "text": "36\"",
+     "variantId": 50
+    },
+    {
+     "slot": 285,
+     "text": "37\"",
+     "variantId": 51
+    },
+    {
+     "slot": 286,
+     "text": "38\"",
+     "variantId": 52
+    },
+    {
+     "slot": 287,
+     "text": "39\"",
+     "variantId": 53
+    },
+    {
+     "slot": 288,
+     "text": "40\"",
+     "variantId": 54
+    },
+    {
+     "slot": 289,
+     "text": "42\"",
+     "variantId": 55
+    },
+    {
+     "slot": 290,
+     "text": "44\"",
+     "variantId": 56
+    },
+    {
+     "slot": 291,
+     "text": "46\"",
+     "variantId": 57
+    },
+    {
+     "slot": 292,
+     "text": "48\"",
+     "variantId": 58
+    },
+    {
+     "slot": 293,
+     "text": "50\"",
+     "variantId": 59
+    },
+    {
+     "slot": 294,
+     "text": "51\"",
+     "variantId": 62
+    },
+    {
+     "slot": 295,
+     "text": "52\"",
+     "variantId": 63
+    },
+    {
+     "slot": 296,
+     "text": "53\"",
+     "variantId": 64
+    },
+    {
+     "slot": 297,
+     "text": "54\"",
+     "variantId": 65
+    },
+    {
+     "slot": 298,
+     "text": "55\"",
+     "variantId": 66
+    },
+    {
+     "slot": 299,
+     "text": "56\"",
+     "variantId": 67
+    },
+    {
+     "slot": 300,
+     "text": "57\"",
+     "variantId": 68
+    },
+    {
+     "slot": 301,
+     "text": "58\"",
+     "variantId": 69
+    },
+    {
+     "slot": 302,
+     "text": "59\"",
+     "variantId": 70
+    },
+    {
+     "slot": 303,
+     "text": "60\"",
+     "variantId": 71
+    },
+    {
+     "slot": 304,
+     "text": "61\"",
+     "variantId": 72
+    },
+    {
+     "slot": 305,
+     "text": "62\"",
+     "variantId": 73
+    },
+    {
+     "slot": 306,
+     "text": "63\"",
+     "variantId": 74
+    },
+    {
+     "slot": 307,
+     "text": "64\"",
+     "variantId": 75
+    },
+    {
+     "slot": 308,
+     "text": "65\"",
+     "variantId": 76
+    },
+    {
+     "slot": 309,
+     "text": "66\"",
+     "variantId": 77
+    },
+    {
+     "slot": 310,
+     "text": "67\"",
+     "variantId": 78
+    },
+    {
+     "slot": 311,
+     "text": "68\"",
+     "variantId": 79
+    },
+    {
+     "slot": 312,
+     "text": "XXS",
+     "variantId": 35
+    },
+    {
+     "slot": 313,
+     "text": "XS",
+     "variantId": 27
+    },
+    {
+     "slot": 314,
+     "text": "S",
+     "variantId": 28
+    },
+    {
+     "slot": 315,
+     "text": "M",
+     "variantId": 29
+    },
+    {
+     "slot": 316,
+     "text": "L",
+     "variantId": 30
+    },
+    {
+     "slot": 317,
+     "text": "XL",
+     "variantId": 31
+    },
+    {
+     "slot": 318,
+     "text": "XXL",
+     "variantId": 32
+    },
+    {
+     "slot": 319,
+     "text": "3XL",
+     "variantId": 36
+    },
+    {
+     "slot": 320,
+     "text": "4XL",
+     "variantId": 47
+    },
+    {
+     "slot": 321,
+     "text": "5XL",
+     "variantId": 80
+    },
+    {
+     "slot": 322,
+     "text": "6XL",
+     "variantId": 81
+    },
+    {
+     "slot": 323,
+     "text": "Other",
+     "variantId": 26
+    }
+   ],
+   "variantSetId": 3
+  },
+  {
+   "country": "US",
+   "id": 60,
+   "lang": "en",
+   "name": "mens-bottoms-sizes",
+   "variant": [
+    {
+     "slot": 1095,
+     "text": "One size",
+     "variantId": 1
+    },
+    {
+     "slot": 1096,
+     "text": "3XS",
+     "variantId": 31
+    },
+    {
+     "slot": 1097,
+     "text": "XXS",
+     "variantId": 27
+    },
+    {
+     "slot": 1098,
+     "text": "XS",
+     "variantId": 2
+    },
+    {
+     "slot": 1099,
+     "text": "S",
+     "variantId": 3
+    },
+    {
+     "slot": 1100,
+     "text": "M",
+     "variantId": 4
+    },
+    {
+     "slot": 1101,
+     "text": "L",
+     "variantId": 5
+    },
+    {
+     "slot": 1102,
+     "text": "XL",
+     "variantId": 6
+    },
+    {
+     "slot": 1103,
+     "text": "XXL",
+     "variantId": 7
+    },
+    {
+     "slot": 1104,
+     "text": "3XL",
+     "variantId": 8
+    },
+    {
+     "slot": 1105,
+     "text": "4XL",
+     "variantId": 28
+    },
+    {
+     "slot": 1106,
+     "text": "5XL",
+     "variantId": 32
+    },
+    {
+     "slot": 1107,
+     "text": "6XL",
+     "variantId": 33
+    },
+    {
+     "slot": 1108,
+     "text": "26\"",
+     "variantId": 9
+    },
+    {
+     "slot": 1109,
+     "text": "27\"",
+     "variantId": 10
+    },
+    {
+     "slot": 1110,
+     "text": "28\"",
+     "variantId": 11
+    },
+    {
+     "slot": 1111,
+     "text": "29\"",
+     "variantId": 12
+    },
+    {
+     "slot": 1112,
+     "text": "30\"",
+     "variantId": 13
+    },
+    {
+     "slot": 1113,
+     "text": "31\"",
+     "variantId": 14
+    },
+    {
+     "slot": 1114,
+     "text": "32\"",
+     "variantId": 15
+    },
+    {
+     "slot": 1115,
+     "text": "33\"",
+     "variantId": 16
+    },
+    {
+     "slot": 1116,
+     "text": "34\"",
+     "variantId": 17
+    },
+    {
+     "slot": 1117,
+     "text": "35\"",
+     "variantId": 18
+    },
+    {
+     "slot": 1118,
+     "text": "36\"",
+     "variantId": 19
+    },
+    {
+     "slot": 1119,
+     "text": "37\"",
+     "variantId": 20
+    },
+    {
+     "slot": 1120,
+     "text": "38\"",
+     "variantId": 21
+    },
+    {
+     "slot": 1121,
+     "text": "39\"",
+     "variantId": 22
+    },
+    {
+     "slot": 1122,
+     "text": "40\"",
+     "variantId": 23
+    },
+    {
+     "slot": 1123,
+     "text": "41\"",
+     "variantId": 24
+    },
+    {
+     "slot": 1124,
+     "text": "42\"",
+     "variantId": 25
+    },
+    {
+     "slot": 1125,
+     "text": "43\"",
+     "variantId": 34
+    },
+    {
+     "slot": 1126,
+     "text": "44\"",
+     "variantId": 29
+    },
+    {
+     "slot": 1127,
+     "text": "45\"",
+     "variantId": 35
+    },
+    {
+     "slot": 1128,
+     "text": "46\"",
+     "variantId": 30
+    },
+    {
+     "slot": 1129,
+     "text": "47\"",
+     "variantId": 36
+    },
+    {
+     "slot": 1130,
+     "text": "48\"",
+     "variantId": 37
+    },
+    {
+     "slot": 1131,
+     "text": "49\"",
+     "variantId": 38
+    },
+    {
+     "slot": 1132,
+     "text": "50\"",
+     "variantId": 39
+    },
+    {
+     "slot": 1133,
+     "text": "51\"",
+     "variantId": 40
+    },
+    {
+     "slot": 1134,
+     "text": "52\"",
+     "variantId": 41
+    },
+    {
+     "slot": 1135,
+     "text": "53\"",
+     "variantId": 42
+    },
+    {
+     "slot": 1136,
+     "text": "54\"",
+     "variantId": 43
+    },
+    {
+     "slot": 1137,
+     "text": "55\"",
+     "variantId": 44
+    },
+    {
+     "slot": 1138,
+     "text": "56\"",
+     "variantId": 45
+    },
+    {
+     "slot": 1139,
+     "text": "57\"",
+     "variantId": 46
+    },
+    {
+     "slot": 1140,
+     "text": "58\"",
+     "variantId": 47
+    },
+    {
+     "slot": 1141,
+     "text": "59\"",
+     "variantId": 48
+    },
+    {
+     "slot": 1142,
+     "text": "60\"",
+     "variantId": 49
+    },
+    {
+     "slot": 1143,
+     "text": "61\"",
+     "variantId": 50
+    },
+    {
+     "slot": 1144,
+     "text": "Other",
+     "variantId": 26
+    }
+   ],
+   "variantSetId": 8
+  }
+ ],
+ "categories": {
+  "category": [
+   {
+    "categoryId": 35,
+    "is_active": true,
+    "lang": "en",
+    "left": 56,
+    "region": null,
+    "right": 57,
+    "selectable": true,
+    "text": "Jeans",
+    "variantSetId": 8
+   },
+   {
+    "categoryId": 35,
+    "is_active": true,
+    "lang": "en",
+    "left": 70,
+    "region": "US",
+    "right": 71,
+    "selectable": true,
+    "text": "Jeans",
+    "variantSetId": 8
+   },
+   {
+    "categoryId": 10,
+    "is_active": true,
+    "lang": "en",
+    "left": 319,
+    "region": null,
+    "right": 416,
+    "selectable": true,
+    "text": "Bottoms",
+    "variantSetId": 3
+   }
+  ]
+ }
+}

@@ -1,0 +1,153 @@
+{
+ "id": 935226197,
+ "slug": "daviduared-like-new-levis-505-regular-189c",
+ "description": "Like New Levi’s 505 Regular Fit Straight Leg Jeans W29 L32\n\nExcellent preloved condition. No flaws, stains, or signs of heel drag/pocket wear. Barely worn!\n\n• Fits true to size (see classic leather patch in photos)\n\nTimeless mid-to-light wash blue denim. Features a comfortable regular fit through the seat and thigh, tapering into a classic versatile straight leg with the signature original zip fly. \n\n• Durable heavyweight 100% cotton denim.\n\n#levis505 #straightlegjeans #streetwear #western #denim",
+ "price_amount": "29.99",
+ "price_currency": "USD",
+ "prices": {
+  "original_price": {
+   "price": "29.99",
+   "total_estimated_price_amount": "29.99",
+   "price_break_down": {
+    "item_price": "29.99",
+    "marketplace_fee": "0.00",
+    "shipping": {
+     "amount": "3.99",
+     "shipping_boundary": "NATIONAL",
+     "domestic_only": true,
+     "shipping_id": "USPS"
+    }
+   }
+  },
+  "current_price": {
+   "price": "29.99",
+   "total_estimated_price_amount": "29.99",
+   "price_break_down": {
+    "item_price": "29.99",
+    "marketplace_fee": "0.00",
+    "shipping": {
+     "amount": "3.99",
+     "shipping_boundary": "NATIONAL",
+     "domestic_only": true,
+     "shipping_id": "USPS"
+    }
+   }
+  },
+  "display_price": {
+   "headline_price": {
+    "amount": "29.99",
+    "currency": "USD"
+   },
+   "headline_price_components": {
+    "buyer_fee": false,
+    "shipping_price": false,
+    "tax": false
+   }
+  },
+  "total_price_components": {
+   "buyer_fee": false,
+   "shipping_price": false,
+   "tax": false
+  }
+ },
+ "brand": "levi-s",
+ "brand_id": 31,
+ "condition": "used_like_new",
+ "variant_set": 60,
+ "variants": {
+  "12": 1
+ },
+ "group": "bottoms",
+ "product_type": "jeans",
+ "quantity": 1,
+ "active_status": "active",
+ "status": "S",
+ "pictures_data": [
+  {
+   "id": 4837960637,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/215995058/4837960637_e6a2788a5e0149e3b128e435c572a2df/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/215995058/4837960637_e6a2788a5e0149e3b128e435c572a2df/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4837961312,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961312_29a7963eea1546edbf1650a409ab465c/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961312_29a7963eea1546edbf1650a409ab465c/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4837961506,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961506_8f3cc3df1bf1428a9e0af04162d11209/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961506_8f3cc3df1bf1428a9e0af04162d11209/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4837961033,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961033_fc87f635159b4e568dd7b34e35640b34/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961033_fc87f635159b4e568dd7b34e35640b34/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4837961409,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961409_cebf3aadf9b44f859ee26e6628e9f347/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/215995058/4837961409_cebf3aadf9b44f859ee26e6628e9f347/P2.jpg"
+    }
+   }
+  }
+ ],
+ "user_data": {
+  "id": 215995058,
+  "username": "davidjared"
+ },
+ "colour": [
+  "blue"
+ ],
+ "categories": [
+  35
+ ],
+ "is_kids": false
+}

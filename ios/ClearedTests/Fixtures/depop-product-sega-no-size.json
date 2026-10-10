@@ -1,0 +1,135 @@
+{
+ "id": 939062879,
+ "slug": "washburnresalez-sega-genesis-jurassic-park-video-ef04",
+ "description": "Sega Genesis Jurassic Park Video Game Complete 1993 CIB w/ Manual NTSC-U/C\n\nRelive the excitement of Isla Nublar with this complete-in-box (CIB) copy of Jurassic Park for the Sega Genesis. Released in 1993, this action-adventure classic features two playable paths, allowing you to survive as Dr. Grant or hunt as a Raptor. This NTSC-U/C region game comes with the original cardboard box, game cartridge, and instruction manual, offering a authentic retro gaming experience for collectors and fans of the iconic film franchise. Published by SEGA, it delivers 16-bit prehistoric thrills and nostalgic 90s gameplay.\n\n#Retro",
+ "price_amount": "30.35",
+ "price_currency": "USD",
+ "prices": {
+  "original_price": {
+   "price": "30.35",
+   "total_estimated_price_amount": "30.35",
+   "price_break_down": {
+    "item_price": "30.35",
+    "marketplace_fee": "0.00",
+    "shipping": {
+     "amount": "1.99",
+     "shipping_boundary": "NATIONAL",
+     "domestic_only": true,
+     "shipping_id": "USPS"
+    }
+   }
+  },
+  "current_price": {
+   "price": "30.35",
+   "total_estimated_price_amount": "30.35",
+   "price_break_down": {
+    "item_price": "30.35",
+    "marketplace_fee": "0.00",
+    "shipping": {
+     "amount": "1.99",
+     "shipping_boundary": "NATIONAL",
+     "domestic_only": true,
+     "shipping_id": "USPS"
+    }
+   }
+  },
+  "display_price": {
+   "headline_price": {
+    "amount": "30.35",
+    "currency": "USD"
+   },
+   "headline_price_components": {
+    "buyer_fee": false,
+    "shipping_price": false,
+    "tax": false
+   }
+  },
+  "total_price_components": {
+   "buyer_fee": false,
+   "shipping_price": false,
+   "tax": false
+  }
+ },
+ "brand": "sega",
+ "brand_id": 19973,
+ "condition": "used_good",
+ "variants": {},
+ "group": "toys",
+ "product_type": "puzzles-games",
+ "quantity": 1,
+ "active_status": "active",
+ "status": "S",
+ "pictures_data": [
+  {
+   "id": 4860681637,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681637_ecdf4ae2638548a88908c4c51dda4942/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681637_ecdf4ae2638548a88908c4c51dda4942/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4860680958,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/408909277/4860680958_3bd4f9769804422b948b2994d7456421/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/408909277/4860680958_3bd4f9769804422b948b2994d7456421/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4860681821,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681821_4297635ac5374c3586b2bdf7b1a754d8/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681821_4297635ac5374c3586b2bdf7b1a754d8/P2.jpg"
+    }
+   }
+  },
+  {
+   "id": 4860681441,
+   "formats": {
+    "P0": {
+     "height": 1280,
+     "width": 1280,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681441_a5eeccf4d390471697e8c8e8ccc4ab72/P0.jpg"
+    },
+    "P2": {
+     "height": 150,
+     "width": 150,
+     "url": "https://media-photos.depop.com/b1/408909277/4860681441_a5eeccf4d390471697e8c8e8ccc4ab72/P2.jpg"
+    }
+   }
+  }
+ ],
+ "user_data": {
+  "id": 408909277,
+  "username": "washburnresales"
+ },
+ "colour": [
+  "red"
+ ],
+ "categories": [
+  26
+ ],
+ "is_kids": false
+}

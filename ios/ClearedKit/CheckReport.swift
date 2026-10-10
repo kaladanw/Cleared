@@ -60,6 +60,11 @@ public struct CheckReport: Codable, Sendable {
     public var verdict: Verdict
     /// Set when the listing could not be read; render THIS and nothing else.
     public var error: String?
+    /// `CheckResponse` additive fields (contract §2): the saved history row,
+    /// nil when not saved (shared-secret `/check`, error reports, save failure).
+    public var reportId: String?
+    /// Screenshots stored privately for recheck (authenticated `/check` only).
+    public var imagesStored: Int?
 
     public static func decoder() -> JSONDecoder {
         let decoder = JSONDecoder()

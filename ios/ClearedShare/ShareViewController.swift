@@ -46,7 +46,10 @@ struct ShareRootView: View {
     private var content: some View {
         switch session.phase {
         case .ingesting:
-            ProgressView("Reading screenshots…")
+            ProgressView("Reading what you shared…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .fetchingListing:
+            ProgressView("Loading the Depop listing…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .composing:
             ComposeView(session: session)
@@ -66,20 +69,34 @@ private struct ComposeView: View {
 
     var body: some View {
         Form {
-            Section {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(session.images.enumerated()), id: \.offset) { _, image in
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 72, height: 108)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+            if let listing = session.listing {
+                ListingPreviewSection(listing: listing)
+            }
+
+            if let notice = session.listingNotice {
+                Section {
+                    Label(notice, systemImage: "info.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if session.listing == nil, !session.images.isEmpty {
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(session.images.enumerated()), id: \.offset) { _, image in
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 72, height: 108)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
                         }
                     }
+                } header: {
+                    Text("\(session.images.count) screenshot\(session.images.count == 1 ? "" : "s")")
                 }
-            } header: {
-                Text("\(session.images.count) screenshot\(session.images.count == 1 ? "" : "s")")
             }
 
             Section("Anything you care about? (optional)") {
@@ -101,6 +118,60 @@ private struct ComposeView: View {
                 }
             }
         }
+    }
+}
+
+/// What the phone read off the Depop listing, so the buyer can see it's the
+/// right item before spending a check on it.
+private struct ListingPreviewSection: View {
+    let listing: DepopListing
+
+    var body: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(listing.imageURLs.prefix(4), id: \.self) { url in
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Color.secondary.opacity(0.15)
+                        }
+                        .frame(width: 72, height: 108)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+            if let title = listing.facts.modelOrName {
+                Text(title).font(.headline)
+            }
+            if !details.isEmpty {
+                Text(details.joined(separator: " · "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if listing.isSold {
+                Label("This listing looks sold or unavailable.", systemImage: "exclamationmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+        } header: {
+            Text("Depop listing")
+        } footer: {
+            if let seller = listing.seller {
+                Text("Sold by @\(seller.username)")
+            }
+        }
+    }
+
+    private var details: [String] {
+        var parts: [String] = []
+        if let price = listing.facts.askingPrice {
+            parts.append(price.formatted(.currency(code: listing.facts.currency)))
+        }
+        if let size = listing.facts.size { parts.append("Size \(size)") }
+        if let condition = listing.facts.listedCondition { parts.append(condition) }
+        if let brand = listing.facts.brand { parts.append(brand) }
+        return parts
     }
 }
 
