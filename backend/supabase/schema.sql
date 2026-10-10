@@ -17,7 +17,8 @@ create table if not exists reports (
   notes       text not null default '',
   tags        text[] not null default '{}',
   image_urls  jsonb not null default '[]'::jsonb,
-  image_paths jsonb not null default '[]'::jsonb,  -- private storage paths (iOS /check)
+  image_paths jsonb not null default '[]'::jsonb,  -- private storage paths (/check, /check-listing)
+  listing_description text,  -- private: seller description for recheck; never shared
   share_token text,
   shared_at   timestamptz,
   seller_username text,

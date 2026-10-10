@@ -81,6 +81,7 @@ class _Query:
                 "tags": [],
                 "image_urls": [],
                 "image_paths": [],
+                "listing_description": None,
                 "share_token": None,
                 "shared_at": None,
                 "seller_username": None,

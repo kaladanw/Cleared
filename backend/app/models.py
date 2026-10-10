@@ -181,15 +181,17 @@ class SellerInfo(BaseModel):
     username: Optional[str] = None
     profile_url: Optional[str] = None
 
-    @field_validator("username")
+    @field_validator("username", mode="before")
     @classmethod
-    def _username(cls, value: Optional[str]) -> Optional[str]:
-        return normalize_seller_username(value)
+    def _username(cls, value) -> Optional[str]:
+        if value is None or isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        return normalize_seller_username(str(value))
 
-    @field_validator("profile_url")
+    @field_validator("profile_url", mode="before")
     @classmethod
-    def _profile_url(cls, value: Optional[str]) -> Optional[str]:
-        if not value:
+    def _profile_url(cls, value) -> Optional[str]:
+        if not value or not isinstance(value, str):
             return None
         url = str(value).strip()
         if len(url) > 300 or not re.match(r"^https?://[^\s\"'<>]+$", url):
@@ -197,8 +199,27 @@ class SellerInfo(BaseModel):
         return url
 
 
+LISTING_DESCRIPTION_MAX = 5000
+
+
+def normalize_listing_description(value) -> Optional[str]:
+    """Trim; blank/whitespace-only or non-string → None; truncate to 5000 chars."""
+    if value is None or not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    return text[:LISTING_DESCRIPTION_MAX].rstrip()
+
+
 class CheckListingRequest(BaseModel):
     facts: ListingFacts = Field(default_factory=ListingFacts)
+    description: Optional[str] = Field(
+        None,
+        description="Seller's full listing description (top level, next to facts). "
+        "Trimmed; blank → absent; truncated to 5000 chars (never a 422). Passed to "
+        "the model for measurements/flaws; never returned by /api/shared.",
+    )
     image_urls: list[str] = Field(default_factory=list)
     user_context: Optional[str] = Field(
         None, description="Transcribed voice note, e.g. 'it's a gift, must be legit'"
@@ -224,6 +245,24 @@ class CheckListingRequest(BaseModel):
     @classmethod
     def _normalize_marketplace(cls, value: str) -> str:
         return normalize_marketplace(value)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def _normalize_description(cls, value) -> Optional[str]:
+        return normalize_listing_description(value)
+
+    @field_validator("seller", mode="before")
+    @classmethod
+    def _lenient_seller(cls, value):
+        """Seller is best-effort: a bare username string is accepted, and any
+        other unusable shape becomes null instead of failing the check."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return {"username": value}
+        if isinstance(value, dict):
+            return value
+        return None
 
 
 class ReportHubUpdate(BaseModel):

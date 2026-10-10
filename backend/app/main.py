@@ -23,6 +23,8 @@ import secrets
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +42,7 @@ from pydantic import BaseModel
 from .auth import get_current_user, login, refresh, signup
 from .check_images import (
     ImageRejected,
+    sniff_image_type,
     download_check_images,
     owned_paths,
     read_uploads,
@@ -280,11 +283,62 @@ def _save_check_with_images(
 # Listing check (JSON + image URLs) — JWT auth, saves to Supabase
 # ---------------------------------------------------------------------------
 
+# Durable photo copy for /check-listing: the CDN bytes are already in memory for
+# the check, so they are uploaded to private storage on a small thread pool
+# *while* the model runs (30–90 s). Collecting the result normally costs ~0 s;
+# the wait is capped so a slow Storage never delays the response much.
+_COPY_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cleared-img-copy")
+IMAGE_COPY_WAIT_SECONDS = float(os.environ.get("CLEARED_IMAGE_COPY_WAIT", "5"))
+
+
+def _start_image_copy(sb, user_id: str, report_id: str, images: list[tuple[bytes, str]]):
+    """Submit a best-effort upload of byte-verified images; None if nothing to do."""
+    durable = []
+    for data, _declared in images:
+        sniffed = sniff_image_type(data)
+        if sniffed:  # image type checked from the bytes, not headers/extension
+            durable.append((data, sniffed))
+    if sb is None or not durable:
+        return None
+    try:
+        return _COPY_POOL.submit(upload_check_images, sb, user_id, report_id, durable)
+    except RuntimeError as exc:  # pool shut down
+        log.warning("image copy not started (non-fatal): %r", exc)
+        return None
+
+
+def _collect_image_copy(future, sb, *, keep: bool) -> list[str]:
+    """Wait (bounded) for the copy. Never raises; cleans up when not kept."""
+    if future is None:
+        return []
+
+    def _discard(f) -> None:
+        try:
+            remove_check_images(sb, f.result())
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("image copy cleanup failed (non-fatal): %r", exc)
+
+    try:
+        paths = future.result(timeout=IMAGE_COPY_WAIT_SECONDS)
+    except FutureTimeout:
+        log.warning("image copy still running after %.1fs; saving without images", IMAGE_COPY_WAIT_SECONDS)
+        future.add_done_callback(_discard)
+        return []
+    except Exception as exc:
+        log.warning("image copy failed (non-fatal): %r", exc)
+        return []
+    if not keep:
+        remove_check_images(sb, paths)
+        return []
+    return paths
+
+
 @app.post("/check-listing", response_model=CheckResponse)
 async def check_listing(
     request: CheckListingRequest,
     user: dict = Depends(get_current_user),
 ) -> CheckResponse:
+    """Bearer only (no X-Cleared-Token): checks here are always user-scoped."""
     images = fetch_images(request.image_urls)
     if not images:
         return CheckResponse(
@@ -292,30 +346,57 @@ async def check_listing(
             error="Could not fetch listing photos from the supplied image URLs.",
         )
 
-    log.info("checking listing from %d fetched image(s)", len(images))
+    # Seller is best-effort: an unusable username nulls the whole seller.
+    seller_username = request.seller.username if request.seller else None
+    seller_url = request.seller.profile_url if (request.seller and seller_username) else None
+
+    will_save = bool(request.listing_url)
+    report_id = str(uuid.uuid4()) if will_save else None
+    sb = get_supabase() if will_save else None
+    copy_future = _start_image_copy(sb, user["id"], report_id, images) if will_save else None
+
+    log.info(
+        "checking listing from %d fetched image(s) description=%s",
+        len(images),
+        "yes" if request.description else "no",
+    )
     report = run_check(
         images,
         user_context=request.user_context,
         seeded_facts=request.facts,
+        description=request.description,
     )
     if report.error:
         log.warning("check-listing returned error: %s", report.error)
 
+    # Durable copies are kept only for a successful check that gets saved.
+    image_paths = _collect_image_copy(copy_future, sb, keep=not report.error)
+
     # Best-effort: save the report to Supabase. A save failure never fails the check.
-    report_id = None
-    if request.listing_url:
-        report_id = _save_report(
+    saved_id = None
+    if will_save:
+        saved_id = _save_report(
             user_id=user["id"],
             listing_url=request.listing_url,
             listing_name=request.facts.model_or_name or request.facts.brand,
             report=report,
             marketplace=request.marketplace,
             image_urls=request.image_urls,
-            seller_username=request.seller.username if request.seller else None,
-            seller_url=request.seller.profile_url if request.seller else None,
+            seller_username=seller_username,
+            seller_url=seller_url,
+            report_id=report_id,
+            image_paths=image_paths,
+            listing_description=request.description,
         )
+        if saved_id is None and image_paths:
+            remove_check_images(sb, image_paths)
+            image_paths = []
 
-    return CheckResponse(**report.model_dump(), report_id=report_id)
+    return CheckResponse(
+        **report.model_dump(),
+        report_id=saved_id,
+        images_stored=len(image_paths) if saved_id else 0,
+    )
 
 
 def _save_report(
@@ -329,6 +410,7 @@ def _save_report(
     seller_url: str | None = None,
     report_id: str | None = None,
     image_paths: list[str] | None = None,
+    listing_description: str | None = None,
 ) -> str | None:
     """Insert a report row. Returns its id, or None when not saved (non-fatal)."""
     sb = get_supabase()
@@ -355,6 +437,9 @@ def _save_report(
         row["id"] = report_id
     if image_paths:
         row["image_paths"] = list(image_paths)
+    if listing_description:
+        # Private column: never selected by /api/shared or the hub list.
+        row["listing_description"] = listing_description
     try:
         result = sb.table("reports").insert(row).execute()
     except Exception as exc:
@@ -711,9 +796,9 @@ async def recheck_report(
 ) -> CheckResponse:
     """Best-effort recheck of an owned report; saves the result as a NEW row.
 
-    Image sources, in order: ``image_paths`` (screenshots stored privately by an
-    authenticated iOS /check — downloaded server-side with the service role) or
-    ``image_urls`` (public CDN URLs captured by the extension). 409 when the row
+    Image sources, in order: ``image_paths`` (private storage copies from an
+    authenticated /check or /check-listing — downloaded server-side with the
+    service role) or ``image_urls`` (CDN URLs, re-fetched through the SSRF guard). 409 when the row
     has neither (older checks): open the listing and check it again instead.
     """
     sb = get_supabase()
@@ -723,7 +808,7 @@ async def recheck_report(
     try:
         result = (
             sb.table("reports")
-            .select(_REPORT_SELECT)
+            .select(_REPORT_SELECT + ", listing_description")
             .eq("id", report_id)
             .eq("user_id", user["id"])
             .limit(1)
@@ -769,7 +854,8 @@ async def recheck_report(
         )
 
     log.info("rechecking report=%s from %d %s image(s)", report_id, len(images), source)
-    report = run_check(images, user_context=None, seeded_facts=facts)
+    description = row.get("listing_description") or None
+    report = run_check(images, user_context=None, seeded_facts=facts, description=description)
     if report.error:
         log.warning("recheck returned error: %s", report.error)
         return CheckResponse(**report.model_dump())
@@ -785,6 +871,7 @@ async def recheck_report(
         seller_url=row.get("seller_url"),
         # The new row references the same stored objects as the original.
         image_paths=image_paths,
+        listing_description=description,
     )
     return CheckResponse(
         **report.model_dump(), report_id=new_id, images_stored=len(image_paths) if new_id else 0
