@@ -43,6 +43,7 @@ final class DepopMappingTests: XCTestCase {
         })
         XCTAssertEqual(listing.seller, .init(username: "davidjared", profileUrl: "https://www.depop.com/davidjared/"))
         XCTAssertFalse(listing.isSold)
+        XCTAssertEqual(listing.description, try product("depop-product-levis-505").description)
     }
 
     func testMapsListingWithoutSizeOrSizeTable() throws {

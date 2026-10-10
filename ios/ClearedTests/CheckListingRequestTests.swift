@@ -27,7 +27,12 @@ final class CheckListingRequestTests: XCTestCase {
         let data = try CheckListingRequest.encoder().encode(body)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        XCTAssertEqual(Set(json.keys), ["facts", "image_urls", "user_context", "listing_url", "marketplace", "seller"])
+        XCTAssertEqual(Set(json.keys), [
+            "facts", "image_urls", "user_context", "listing_url", "marketplace", "seller", "description",
+        ])
+        let description = try XCTUnwrap(json["description"] as? String)
+        XCTAssertTrue(description.hasPrefix("Like New Levi’s 505 Regular Fit Straight Leg Jeans W29 L32\n"))
+        XCTAssertTrue(description.contains("\n"), "the full description, not just the first line")
         XCTAssertEqual(json["listing_url"] as? String,
                        "https://www.depop.com/products/daviduared-like-new-levis-505-regular-189c/")
         XCTAssertEqual(json["marketplace"] as? String, "depop")
@@ -60,7 +65,21 @@ final class CheckListingRequestTests: XCTestCase {
         XCTAssertNil(json["user_context"])
         XCTAssertNil(json["listing_url"])
         XCTAssertNil(json["seller"])
+        XCTAssertNil(json["description"])
         XCTAssertEqual((json["facts"] as? [String: Any])?.keys.sorted(), ["currency", "photo_observations"])
+    }
+
+    func testDescriptionIsTrimmedCappedAndBlankDropped() {
+        func make(_ description: String?) -> CheckListingRequest {
+            CheckListingRequest(facts: .init(), imageUrls: [], userContext: nil,
+                                listingUrl: nil, seller: nil, description: description)
+        }
+        XCTAssertEqual(make("  \n Hi\nthere \n").description, "Hi\nthere")
+        XCTAssertNil(make(" \n ").description)
+        XCTAssertNil(make(nil).description)
+        let long = String(repeating: "é", count: 6_000)
+        XCTAssertEqual(make(long).description?.count, CheckListingRequest.maxDescriptionLength)
+        XCTAssertEqual(make(String(repeating: "x", count: 5_000)).description?.count, 5_000)
     }
 
     func testCheckListingRequestIsBearerJSON() throws {

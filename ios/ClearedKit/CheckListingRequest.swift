@@ -52,10 +52,16 @@ public struct CheckListingRequest: Encodable, Equatable, Sendable {
     public var listingUrl: String?
     public var marketplace: String
     public var seller: Seller?
+    /// The seller's full listing description (measurements, flaws, …), trimmed
+    /// and capped at `maxDescriptionLength`. Optional; the backend caps it too.
+    public var description: String?
+
+    public static let maxDescriptionLength = 5_000
 
     public init(
         facts: Facts, imageUrls: [String], userContext: String?,
-        listingUrl: String?, marketplace: String = "depop", seller: Seller?
+        listingUrl: String?, marketplace: String = "depop", seller: Seller?,
+        description: String? = nil
     ) {
         self.facts = facts
         self.imageUrls = imageUrls
@@ -63,6 +69,13 @@ public struct CheckListingRequest: Encodable, Equatable, Sendable {
         self.listingUrl = listingUrl
         self.marketplace = marketplace
         self.seller = seller
+        self.description = Self.cappedDescription(description)
+    }
+
+    static func cappedDescription(_ raw: String?) -> String? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxDescriptionLength))
     }
 
     public static func encoder() -> JSONEncoder {

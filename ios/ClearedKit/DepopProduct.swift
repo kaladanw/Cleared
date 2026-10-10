@@ -107,6 +107,8 @@ public struct DepopListing: Equatable, Sendable {
     public var seller: CheckListingRequest.Seller?
     /// quantity 0 or not active: the buyer should know before they offer.
     public var isSold: Bool
+    /// Full Depop description; sent as `description` (capped client-side).
+    public var description: String? = nil
 
     public func checkListingRequest(userContext: String?) -> CheckListingRequest {
         CheckListingRequest(
@@ -115,7 +117,8 @@ public struct DepopListing: Equatable, Sendable {
             userContext: userContext,
             listingUrl: canonicalURL.absoluteString,
             marketplace: "depop",
-            seller: seller
+            seller: seller,
+            description: description
         )
     }
 }
@@ -168,7 +171,8 @@ public enum DepopListingMapper {
             facts: facts,
             imageURLs: Array(images.prefix(maxImages)),
             seller: seller,
-            isSold: isSold
+            isSold: isSold,
+            description: product.description
         )
     }
 
